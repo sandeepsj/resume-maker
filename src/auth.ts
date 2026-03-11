@@ -1,21 +1,16 @@
 import NextAuth from "next-auth";
-import Google from "next-auth/providers/google";
 import { MongoDBAdapter } from "@auth/mongodb-adapter";
 import { clientPromise } from "@/lib/mongodb";
+import { authConfig } from "@/auth.config";
 
+// Full server-side config — includes DB adapter.
+// Only imported in server components and API routes (never in middleware).
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  ...authConfig,
   adapter: MongoDBAdapter(clientPromise),
-  providers: [
-    Google({
-      clientId: process.env.AUTH_GOOGLE_ID!,
-      clientSecret: process.env.AUTH_GOOGLE_SECRET!,
-    }),
-  ],
-  pages: {
-    signIn: "/login",
-    error: "/login",
-  },
+  session: { strategy: "database" },
   callbacks: {
+    ...authConfig.callbacks,
     session({ session, user }) {
       if (session.user && user) {
         session.user.id = user.id;
