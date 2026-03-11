@@ -286,12 +286,14 @@ export default function ResumeViewer({
           >
             {sidebarOpen ? "Hide" : "Show"} Comments ({activeComments.length})
           </button>
-          <button
-            onClick={() => alert("PDF export coming soon")}
+          <a
+            href={`/resumes/${resumeId}/print`}
+            target="_blank"
+            rel="noopener noreferrer"
             className="bg-blue-500 hover:bg-blue-600 text-white rounded-lg px-4 py-1.5 text-sm font-medium transition-colors"
           >
             Export PDF
-          </button>
+          </a>
         </div>
       </div>
 
@@ -300,7 +302,7 @@ export default function ResumeViewer({
         <div className={`flex-1 overflow-auto p-8 ${sidebarOpen ? "mr-80" : ""}`}>
           <div
             ref={resumeRef}
-            className="max-w-3xl mx-auto bg-white shadow-sm border border-slate-200 rounded-xl p-10 select-text"
+            className="w-[794px] mx-auto bg-white shadow-sm border border-slate-200 rounded-xl p-10 select-text"
             onMouseUp={handleMouseUp}
           >
             {/* Header */}

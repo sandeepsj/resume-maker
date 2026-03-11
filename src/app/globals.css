@@ -20,6 +20,18 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Print styles */
+@media print {
+  @page {
+    size: A4;
+    margin: 15mm 20mm;
+  }
+
+  body {
+    background: white !important;
+  }
+}
+
 /* Base input styles — ensure text is always visible on white backgrounds */
 input,
 textarea,
