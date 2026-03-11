@@ -113,9 +113,8 @@ async function* streamGemini(
 
   const result = await ai.models.generateContentStream({
     model: AI_MODEL,
-    systemInstruction: system,
     contents: [{ role: "user", parts: [{ text: user }] }],
-    config: { maxOutputTokens: maxTokens, temperature },
+    config: { systemInstruction: system, maxOutputTokens: maxTokens, temperature },
   });
 
   for await (const chunk of result) {
