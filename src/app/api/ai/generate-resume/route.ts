@@ -7,7 +7,7 @@ import { Education } from "@/lib/models/Education";
 import { Skill } from "@/lib/models/Skill";
 import { UserProfile } from "@/lib/models/UserProfile";
 import { ResumeVersion } from "@/lib/models/ResumeVersion";
-import { anthropic, AI_MODEL } from "@/lib/anthropic";
+import { streamAI, AI_MODEL } from "@/lib/ai-provider";
 import {
   GENERATE_RESUME_SYSTEM_PROMPT,
   buildGenerateResumePrompt,
@@ -111,23 +111,10 @@ export async function POST(req: Request) {
       let accumulated = "";
 
       try {
-        const aiStream = await anthropic.messages.stream({
-          model: AI_MODEL,
-          max_tokens: 4096,
-          temperature: 0.3,
-          system: GENERATE_RESUME_SYSTEM_PROMPT,
-          messages: [{ role: "user", content: userPrompt }],
-        });
-
-        for await (const chunk of aiStream) {
-          if (
-            chunk.type === "content_block_delta" &&
-            chunk.delta.type === "text_delta"
-          ) {
-            accumulated += chunk.delta.text;
-            const data = JSON.stringify({ type: "chunk", text: chunk.delta.text });
-            controller.enqueue(encoder.encode(`data: ${data}\n\n`));
-          }
+        for await (const text of streamAI(GENERATE_RESUME_SYSTEM_PROMPT, userPrompt, { maxTokens: 4096, temperature: 0.3 })) {
+          accumulated += text;
+          const data = JSON.stringify({ type: "chunk", text });
+          controller.enqueue(encoder.encode(`data: ${data}\n\n`));
         }
 
         // Parse and save the result

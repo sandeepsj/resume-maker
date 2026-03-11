@@ -4,7 +4,7 @@ import { connectDB } from "@/lib/mongodb";
 import { Resume } from "@/lib/models/Resume";
 import { Comment } from "@/lib/models/Comment";
 import { ResumeVersion } from "@/lib/models/ResumeVersion";
-import { anthropic, AI_MODEL } from "@/lib/anthropic";
+import { streamAI, AI_MODEL } from "@/lib/ai-provider";
 import { APPLY_COMMENT_SYSTEM_PROMPT, buildApplyCommentPrompt } from "@/prompts/apply-comment";
 import { z } from "zod";
 import type { ResumeContent } from "@/types/resume";
@@ -52,23 +52,10 @@ export async function POST(req: Request) {
       let accumulated = "";
 
       try {
-        const aiStream = await anthropic.messages.stream({
-          model: AI_MODEL,
-          max_tokens: 4096,
-          temperature: 0.1,
-          system: APPLY_COMMENT_SYSTEM_PROMPT,
-          messages: [{ role: "user", content: userPrompt }],
-        });
-
-        for await (const chunk of aiStream) {
-          if (
-            chunk.type === "content_block_delta" &&
-            chunk.delta.type === "text_delta"
-          ) {
-            accumulated += chunk.delta.text;
-            const data = JSON.stringify({ type: "chunk", text: chunk.delta.text });
-            controller.enqueue(encoder.encode(`data: ${data}\n\n`));
-          }
+        for await (const text of streamAI(APPLY_COMMENT_SYSTEM_PROMPT, userPrompt, { maxTokens: 4096, temperature: 0.1 })) {
+          accumulated += text;
+          const data = JSON.stringify({ type: "chunk", text });
+          controller.enqueue(encoder.encode(`data: ${data}\n\n`));
         }
 
         // Parse and apply
