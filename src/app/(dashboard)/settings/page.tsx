@@ -15,7 +15,7 @@ export default async function SettingsPage() {
   const rawProfile = await UserProfile.findOneAndUpdate(
     { userId: session.user.id },
     { $setOnInsert: { userId: session.user.id } },
-    { upsert: true, new: true }
+    { upsert: true, returnDocument: 'after' }
   ).lean();
 
   const profile: UserProfileData = {

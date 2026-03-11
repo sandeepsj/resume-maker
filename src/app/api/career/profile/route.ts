@@ -22,7 +22,7 @@ export async function GET() {
   const profile = await UserProfile.findOneAndUpdate(
     { userId: session.user.id },
     { $setOnInsert: { userId: session.user.id } },
-    { upsert: true, new: true }
+    { upsert: true, returnDocument: 'after' }
   ).lean();
 
   return NextResponse.json(profile);
@@ -42,7 +42,7 @@ export async function PUT(req: Request) {
   const profile = await UserProfile.findOneAndUpdate(
     { userId: session.user.id },
     { ...parsed.data },
-    { upsert: true, new: true }
+    { upsert: true, returnDocument: 'after' }
   ).lean();
 
   return NextResponse.json(profile);

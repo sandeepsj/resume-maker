@@ -36,7 +36,7 @@ export async function PUT(
   const comment = await Comment.findOneAndUpdate(
     { _id: commentId, resumeId },
     { ...parsed.data },
-    { new: true }
+    { returnDocument: 'after' }
   ).lean();
 
   if (!comment) return NextResponse.json({ error: "Comment not found" }, { status: 404 });

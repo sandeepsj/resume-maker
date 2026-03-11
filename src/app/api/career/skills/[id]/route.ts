@@ -25,7 +25,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const skill = await Skill.findOneAndUpdate(
     { _id: id, userId: session.user.id },
     parsed.data,
-    { new: true }
+    { returnDocument: 'after' }
   ).lean();
 
   if (!skill) return NextResponse.json({ error: "Not found" }, { status: 404 });

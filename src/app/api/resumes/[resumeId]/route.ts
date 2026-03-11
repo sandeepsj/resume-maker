@@ -28,7 +28,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ resumeId
   const resume = await Resume.findOneAndUpdate(
     { _id: resumeId, userId: session.user.id },
     body,
-    { new: true }
+    { returnDocument: 'after' }
   ).lean();
 
   if (!resume) return NextResponse.json({ error: "Not found" }, { status: 404 });
