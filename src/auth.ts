@@ -4,22 +4,22 @@ import { clientPromise } from "@/lib/mongodb";
 import { authConfig } from "@/auth.config";
 
 // Full server-side config — includes DB adapter for storing users/accounts.
-// JWT session strategy: sessions are JWTs in cookies (no DB lookup needed),
-// but users and OAuth accounts are still persisted in MongoDB.
-// Only import this in server components and API routes — never in proxy/middleware.
+// JWT strategy: sessions are JWTs in cookies, no DB session lookup.
+// IMPORTANT: do NOT spread authConfig.callbacks here — the `authorized`
+// callback is only for the proxy/middleware. Including it in server-side
+// auth() calls causes it to run mid-decode and return null sessions.
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
   adapter: MongoDBAdapter(clientPromise),
   callbacks: {
-    ...authConfig.callbacks,
-    // Embed user.id into the JWT token when it is first created
+    // Embed user.id into the JWT on first sign-in
     jwt({ token, user }) {
-      if (user) {
+      if (user?.id) {
         token.id = user.id;
       }
       return token;
     },
-    // Expose user.id from the JWT token on the session object
+    // Expose user.id from the JWT on the session object
     session({ session, token }) {
       if (session.user && token.id) {
         session.user.id = token.id as string;

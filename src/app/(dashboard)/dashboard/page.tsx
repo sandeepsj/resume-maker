@@ -1,16 +1,19 @@
 import { auth } from "@/auth";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { connectDB } from "@/lib/mongodb";
 import { Resume } from "@/lib/models/Resume";
 import { Experience } from "@/lib/models/Experience";
 
 export default async function DashboardPage() {
   const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+
   await connectDB();
 
   const [resumes, experienceCount] = await Promise.all([
-    Resume.find({ userId: session!.user!.id }).sort({ createdAt: -1 }).limit(5).lean(),
-    Experience.countDocuments({ userId: session!.user!.id }),
+    Resume.find({ userId: session.user.id }).sort({ createdAt: -1 }).limit(5).lean(),
+    Experience.countDocuments({ userId: session.user.id }),
   ]);
 
   const hasCareerData = experienceCount > 0;
@@ -19,7 +22,7 @@ export default async function DashboardPage() {
     <div className="p-8 max-w-5xl mx-auto">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-slate-900">
-          Welcome back, {session!.user!.name?.split(" ")[0]}
+          Welcome back, {session.user.name?.split(" ")[0]}
         </h1>
         <p className="text-slate-500 mt-1">
           {resumes.length === 0
