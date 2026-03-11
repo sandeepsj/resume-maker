@@ -12,6 +12,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
   adapter: MongoDBAdapter(clientPromise),
   callbacks: {
+    // Block sign-in for emails not in the ALLOWED_EMAILS whitelist
+    signIn({ user }) {
+      const allowed = (process.env.ALLOWED_EMAILS ?? "")
+        .split(",")
+        .map((e) => e.trim().toLowerCase())
+        .filter(Boolean);
+      if (allowed.length === 0) return true; // no restriction if env not set
+      return allowed.includes((user.email ?? "").toLowerCase());
+    },
     // Embed user.id into the JWT on first sign-in
     jwt({ token, user }) {
       if (user?.id) {
