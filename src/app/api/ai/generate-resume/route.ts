@@ -132,7 +132,9 @@ export async function POST(req: Request) {
 
         // Parse and save the result
         try {
-          const content = JSON.parse(accumulated) as ResumeContent;
+          // Strip markdown code fences Claude sometimes wraps around JSON
+          const raw = accumulated.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
+          const content = JSON.parse(raw) as ResumeContent;
 
           // Save version snapshot if there was previous content
           if (resume.content) {

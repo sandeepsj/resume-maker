@@ -73,7 +73,8 @@ export async function POST(req: Request) {
 
         // Parse and apply
         try {
-          const parsed = JSON.parse(accumulated) as {
+          const raw = accumulated.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
+          const parsed = JSON.parse(raw) as {
             updatedResume: ResumeContent;
             explanation: string;
           };
