@@ -3,7 +3,9 @@ import Google from "next-auth/providers/google";
 
 // Lightweight config — no DB adapter, edge runtime safe.
 // Used by middleware for session token verification only.
+// JWT strategy so the edge runtime can verify sessions without a DB call.
 export const authConfig: NextAuthConfig = {
+  session: { strategy: "jwt" },
   providers: [
     Google({
       clientId: process.env.AUTH_GOOGLE_ID!,
