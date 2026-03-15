@@ -33,8 +33,9 @@ interface ResumeViewerProps {
 }
 
 function formatDate(isoDate: string | null | undefined): string {
-  if (!isoDate) return "Present";
+  if (!isoDate || isoDate === "Present") return "Present";
   const d = new Date(isoDate);
+  if (isNaN(d.getTime())) return isoDate;
   return d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
 }
 
@@ -71,7 +72,7 @@ export default function ResumeViewer({
     window.location.reload();
   }, []);
 
-  const handleMouseUp = useCallback(() => {
+  const evaluateSelection = useCallback(() => {
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || !sel.toString().trim()) {
       setFloatingBtn(null);
@@ -109,13 +110,29 @@ export default function ResumeViewer({
     const rect = range.getBoundingClientRect();
     setFloatingBtn({
       x: rect.left + rect.width / 2,
-      y: rect.top - 8,
+      // Position below the selection so we don't clash with Android's native toolbar
+      y: rect.bottom + 8,
       sectionKey,
       selectedText,
       anchorOffset: range.startOffset,
       focusOffset: range.endOffset,
     });
   }, []);
+
+  // selectionchange fires on both desktop and mobile (touch) devices
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    const handleSelectionChange = () => {
+      // Small debounce so Android handles are fully settled before we read the range
+      clearTimeout(timer);
+      timer = setTimeout(evaluateSelection, 120);
+    };
+    document.addEventListener("selectionchange", handleSelectionChange);
+    return () => {
+      document.removeEventListener("selectionchange", handleSelectionChange);
+      clearTimeout(timer);
+    };
+  }, [evaluateSelection]);
 
   const handleAddComment = () => {
     if (!floatingBtn) return;
@@ -251,15 +268,15 @@ export default function ResumeViewer({
     }
   };
 
-  // Close floating button on click-away
+  // Close floating button on click/tap away (pointerdown covers both mouse and touch)
   useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
+    const handlePointerDown = (e: PointerEvent) => {
       if (floatingBtn && !(e.target as Element)?.closest("[data-float-btn]")) {
         setFloatingBtn(null);
       }
     };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [floatingBtn]);
 
   const { header, summary, experience, education, skills, certifications } = content;
@@ -303,7 +320,6 @@ export default function ResumeViewer({
           <div
             ref={resumeRef}
             className="w-[794px] mx-auto bg-white shadow-sm border border-slate-200 rounded-xl p-10 select-text"
-            onMouseUp={handleMouseUp}
           >
             {/* Header */}
             <div data-section-key="header" className="mb-6 pb-6 border-b border-slate-200">
@@ -554,15 +570,15 @@ export default function ResumeViewer({
       {floatingBtn && (
         <div
           data-float-btn
-          className="fixed z-50 transform -translate-x-1/2 -translate-y-full pointer-events-auto"
+          className="fixed z-50 -translate-x-1/2 pointer-events-auto"
           style={{ left: floatingBtn.x, top: floatingBtn.y }}
         >
           <button
-            onMouseDown={(e) => {
+            onPointerDown={(e) => {
               e.preventDefault();
               handleAddComment();
             }}
-            className="bg-slate-900 text-white text-xs rounded-lg px-3 py-1.5 shadow-lg font-medium hover:bg-slate-700 transition-colors whitespace-nowrap"
+            className="bg-slate-900 text-white text-xs rounded-lg px-3 py-1.5 shadow-lg font-medium hover:bg-slate-700 transition-colors whitespace-nowrap touch-manipulation"
           >
             + Add Comment
           </button>
