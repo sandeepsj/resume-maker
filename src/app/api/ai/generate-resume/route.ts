@@ -18,10 +18,11 @@ import { formatDate } from "@/lib/utils";
 
 const RequestSchema = z.object({
   resumeId: z.string().min(1),
-  jobTitle: z.string().min(1),
-  companyName: z.string().min(1),
-  jobDescription: z.string().min(1),
+  jobTitle: z.string().optional().default(""),
+  companyName: z.string().optional().default(""),
+  jobDescription: z.string().optional().default(""),
   selectedExperienceIds: z.array(z.string()).optional(),
+  customInstructions: z.string().optional(),
 });
 
 export async function POST(req: Request) {
@@ -34,13 +35,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { resumeId, jobTitle, companyName, jobDescription, selectedExperienceIds } = parsed.data;
+  const { resumeId, selectedExperienceIds, customInstructions } = parsed.data;
 
   await connectDB();
 
   // Verify resume ownership
   const resume = await Resume.findOne({ _id: resumeId, userId: session.user.id });
   if (!resume) return NextResponse.json({ error: "Resume not found" }, { status: 404 });
+
+  // Fall back to stored job details if not provided in request
+  const jobTitle = parsed.data.jobTitle || resume.jobTitle || "";
+  const companyName = parsed.data.companyName || resume.companyName || "";
+  const jobDescription = parsed.data.jobDescription || resume.jobDescription || "";
 
   // Fetch career data
   const [profile, experiences, educations, skills] = await Promise.all([
@@ -102,6 +108,7 @@ export async function POST(req: Request) {
     jobTitle,
     companyName,
     jobDescription,
+    customInstructions,
   });
 
   // Stream response

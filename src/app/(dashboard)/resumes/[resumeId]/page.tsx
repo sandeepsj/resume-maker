@@ -94,6 +94,8 @@ export default async function ResumePage({
       content={resume.content as ResumeContent}
       resumeTitle={resume.title}
       initialComments={comments}
+      jobTitle={resume.jobTitle}
+      companyName={resume.companyName}
     />
   );
 }

@@ -25,6 +25,7 @@ export function buildGenerateResumePrompt(params: {
   jobTitle: string;
   companyName: string;
   jobDescription: string;
+  customInstructions?: string;
 }): string {
   const {
     profile,
@@ -36,6 +37,7 @@ export function buildGenerateResumePrompt(params: {
     jobTitle,
     companyName,
     jobDescription,
+    customInstructions,
   } = params;
 
   const skillsByCategory = skills.reduce(
@@ -140,5 +142,13 @@ OUTPUT SCHEMA — return a JSON object with EXACTLY this structure:
   ]
 }
 
-Generate the tailored resume now:`;
+Generate the tailored resume now:${
+    customInstructions
+      ? `
+
+ADDITIONAL INSTRUCTIONS FROM USER:
+${customInstructions}
+These take priority — incorporate them carefully without inventing new facts.`
+      : ""
+  }`;
 }

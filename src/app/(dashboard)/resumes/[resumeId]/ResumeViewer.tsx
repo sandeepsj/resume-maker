@@ -30,6 +30,8 @@ interface ResumeViewerProps {
   content: ResumeContent;
   resumeTitle: string;
   initialComments: CommentData[];
+  jobTitle?: string;
+  companyName?: string;
 }
 
 function formatDate(isoDate: string | null | undefined): string {
@@ -51,6 +53,8 @@ export default function ResumeViewer({
   content,
   resumeTitle,
   initialComments,
+  jobTitle,
+  companyName,
 }: ResumeViewerProps) {
   const [comments, setComments] = useState<CommentData[]>(initialComments);
   const [floatingBtn, setFloatingBtn] = useState<FloatingButton | null>(null);
@@ -65,6 +69,11 @@ export default function ResumeViewer({
   const [applyingCommentId, setApplyingCommentId] = useState<string | null>(null);
   const [applyStreamText, setApplyStreamText] = useState<Record<string, string>>({});
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [regenOpen, setRegenOpen] = useState(false);
+  const [regenInstructions, setRegenInstructions] = useState("");
+  const [regenStreaming, setRegenStreaming] = useState(false);
+  const [regenStreamText, setRegenStreamText] = useState("");
+  const [regenError, setRegenError] = useState("");
   const resumeRef = useRef<HTMLDivElement>(null);
 
   // Reload after apply-comment completes
@@ -268,6 +277,59 @@ export default function ResumeViewer({
     }
   };
 
+  const handleRegen = async () => {
+    setRegenStreaming(true);
+    setRegenStreamText("");
+    setRegenError("");
+
+    try {
+      const res = await fetch("/api/ai/generate-resume", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resumeId, customInstructions: regenInstructions }),
+      });
+
+      if (!res.ok) throw new Error("Failed to start regeneration");
+
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const rawJson = line.replace("data: ", "").trim();
+          if (!rawJson) continue;
+          try {
+            const json = JSON.parse(rawJson);
+            if (json.type === "chunk") {
+              setRegenStreamText((prev) => prev + json.text);
+            } else if (json.type === "done") {
+              window.location.reload();
+              return;
+            } else if (json.type === "error") {
+              setRegenError(json.error);
+              setRegenStreaming(false);
+              return;
+            }
+          } catch {
+            // skip partial lines
+          }
+        }
+      }
+    } catch (err) {
+      setRegenError(err instanceof Error ? err.message : "Regeneration failed");
+      setRegenStreaming(false);
+    }
+  };
+
   // Close floating button on click/tap away (pointerdown covers both mouse and touch)
   useEffect(() => {
     const handlePointerDown = (e: PointerEvent) => {
@@ -302,6 +364,17 @@ export default function ResumeViewer({
             className="border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg px-3 py-1.5 text-sm transition-colors"
           >
             {sidebarOpen ? "Hide" : "Show"} Comments ({activeComments.length})
+          </button>
+          <button
+            onClick={() => {
+              setRegenOpen(true);
+              setRegenInstructions("");
+              setRegenStreamText("");
+              setRegenError("");
+            }}
+            className="border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg px-3 py-1.5 text-sm transition-colors"
+          >
+            Regenerate
           </button>
           <a
             href={`/resumes/${resumeId}/print`}
@@ -582,6 +655,54 @@ export default function ResumeViewer({
           >
             + Add Comment
           </button>
+        </div>
+      )}
+
+      {/* Regenerate modal */}
+      {regenOpen && (
+        <div className="fixed inset-0 bg-black/20 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-lg">
+            <h3 className="font-semibold text-slate-900 mb-1">Regenerate Resume</h3>
+            {(jobTitle || companyName) && (
+              <p className="text-xs text-slate-500 mb-3">
+                Target: <strong>{jobTitle}</strong>{jobTitle && companyName ? " at " : ""}<strong>{companyName}</strong>
+              </p>
+            )}
+            <textarea
+              autoFocus
+              value={regenInstructions}
+              onChange={(e) => setRegenInstructions(e.target.value)}
+              rows={4}
+              disabled={regenStreaming}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none disabled:opacity-50"
+              placeholder="Custom instructions (optional) — e.g. Include more detail about the distributed cache project, emphasize system design experience"
+            />
+            {regenStreamText && (
+              <div className="mt-3 p-3 bg-slate-50 rounded-lg max-h-32 overflow-y-auto">
+                <p className="text-xs text-slate-500 mb-1 font-medium">Generating...</p>
+                <pre className="text-xs text-slate-600 whitespace-pre-wrap font-mono">{regenStreamText}</pre>
+              </div>
+            )}
+            {regenError && (
+              <p className="mt-2 text-xs text-red-600 bg-red-50 rounded p-2">{regenError}</p>
+            )}
+            <div className="flex gap-3 justify-end mt-4">
+              <button
+                onClick={() => setRegenOpen(false)}
+                disabled={regenStreaming}
+                className="border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg px-4 py-2 text-sm transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRegen}
+                disabled={regenStreaming}
+                className="bg-blue-500 hover:bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50 transition-colors"
+              >
+                {regenStreaming ? "Regenerating..." : "Regenerate"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
