@@ -16,6 +16,15 @@ interface CommentData {
   createdAt: string;
 }
 
+interface StoredExperience {
+  _id: string;
+  title: string;
+  company: string;
+  startDate: string;
+  endDate?: string;
+  isCurrent: boolean;
+}
+
 interface FloatingButton {
   x: number;
   y: number;
@@ -74,6 +83,14 @@ export default function ResumeViewer({
   const [regenStreaming, setRegenStreaming] = useState(false);
   const [regenStreamText, setRegenStreamText] = useState("");
   const [regenError, setRegenError] = useState("");
+  const [addExpOpen, setAddExpOpen] = useState(false);
+  const [allExperiences, setAllExperiences] = useState<StoredExperience[]>([]);
+  const [addExpLoading, setAddExpLoading] = useState(false);
+  const [selectedExpId, setSelectedExpId] = useState<string | null>(null);
+  const [addExpNotes, setAddExpNotes] = useState("");
+  const [addExpStreaming, setAddExpStreaming] = useState(false);
+  const [addExpStreamText, setAddExpStreamText] = useState("");
+  const [addExpError, setAddExpError] = useState("");
   const resumeRef = useRef<HTMLDivElement>(null);
 
   // Reload after apply-comment completes
@@ -330,6 +347,78 @@ export default function ResumeViewer({
     }
   };
 
+  const openAddExpModal = async () => {
+    setAddExpOpen(true);
+    setAddExpLoading(true);
+    setSelectedExpId(null);
+    setAddExpNotes("");
+    setAddExpStreamText("");
+    setAddExpError("");
+    try {
+      const res = await fetch("/api/career/experience");
+      const data = await res.json();
+      setAllExperiences(data);
+    } catch {
+      setAddExpError("Failed to load experiences.");
+    } finally {
+      setAddExpLoading(false);
+    }
+  };
+
+  const handleAddExp = async () => {
+    if (!selectedExpId) return;
+    setAddExpStreaming(true);
+    setAddExpStreamText("");
+    setAddExpError("");
+
+    try {
+      const res = await fetch("/api/ai/add-experience", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resumeId, experienceId: selectedExpId, notes: addExpNotes }),
+      });
+
+      if (!res.ok) throw new Error("Failed to start");
+
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const rawJson = line.replace("data: ", "").trim();
+          if (!rawJson) continue;
+          try {
+            const json = JSON.parse(rawJson);
+            if (json.type === "chunk") {
+              setAddExpStreamText((prev) => prev + json.text);
+            } else if (json.type === "done") {
+              window.location.reload();
+              return;
+            } else if (json.type === "error") {
+              setAddExpError(json.error);
+              setAddExpStreaming(false);
+              return;
+            }
+          } catch {
+            // skip partial lines
+          }
+        }
+      }
+    } catch (err) {
+      setAddExpError(err instanceof Error ? err.message : "Failed to add experience");
+      setAddExpStreaming(false);
+    }
+  };
+
   // Close floating button on click/tap away (pointerdown covers both mouse and touch)
   useEffect(() => {
     const handlePointerDown = (e: PointerEvent) => {
@@ -343,6 +432,7 @@ export default function ResumeViewer({
 
   const { header, summary, experience, education, skills, certifications } = content;
   const activeComments = comments.filter((c) => c.status !== "DISMISSED");
+  const experienceIdsInResume = new Set(experience.map((e) => e.id));
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -375,6 +465,12 @@ export default function ResumeViewer({
             className="border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg px-3 py-1.5 text-sm transition-colors"
           >
             Regenerate
+          </button>
+          <button
+            onClick={openAddExpModal}
+            className="border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg px-3 py-1.5 text-sm transition-colors"
+          >
+            + Add Experience
           </button>
           <a
             href={`/resumes/${resumeId}/print`}
@@ -655,6 +751,99 @@ export default function ResumeViewer({
           >
             + Add Comment
           </button>
+        </div>
+      )}
+
+      {/* Add Experience modal */}
+      {addExpOpen && (
+        <div className="fixed inset-0 bg-black/20 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-lg flex flex-col max-h-[90vh]">
+            <h3 className="font-semibold text-slate-900 mb-3">Add Experience to Resume</h3>
+
+            {addExpLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : (
+              <div className="overflow-y-auto flex-1 mb-3 space-y-2 max-h-64">
+                {allExperiences.length === 0 && (
+                  <p className="text-sm text-slate-400 text-center py-4">No experiences found.</p>
+                )}
+                {allExperiences.map((exp) => {
+                  const alreadyIn = experienceIdsInResume.has(exp._id);
+                  const isSelected = selectedExpId === exp._id;
+                  return (
+                    <button
+                      key={exp._id}
+                      disabled={alreadyIn || addExpStreaming}
+                      onClick={() => setSelectedExpId(exp._id)}
+                      className={`w-full text-left rounded-lg border px-3 py-2.5 text-sm transition-colors ${
+                        alreadyIn
+                          ? "border-slate-100 bg-slate-50 opacity-50 cursor-not-allowed"
+                          : isSelected
+                          ? "border-blue-500 bg-blue-50 ring-1 ring-blue-500"
+                          : "border-slate-200 hover:border-slate-300 hover:bg-slate-50 cursor-pointer"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <span className="font-medium text-slate-900">{exp.title}</span>
+                          <span className="text-slate-500"> at {exp.company}</span>
+                        </div>
+                        {alreadyIn ? (
+                          <span className="shrink-0 text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-medium">
+                            Already included
+                          </span>
+                        ) : (
+                          <span className="shrink-0 text-xs text-slate-400">
+                            {new Date(exp.startDate).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
+                            {" – "}
+                            {exp.isCurrent ? "Present" : exp.endDate ? new Date(exp.endDate).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : "Present"}
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            <textarea
+              value={addExpNotes}
+              onChange={(e) => setAddExpNotes(e.target.value)}
+              rows={2}
+              disabled={addExpStreaming}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none disabled:opacity-50 mb-3"
+              placeholder="What to emphasize? (optional) — e.g. Focus on the distributed systems work"
+            />
+
+            {addExpStreamText && (
+              <div className="mb-3 p-3 bg-slate-50 rounded-lg max-h-24 overflow-y-auto">
+                <p className="text-xs text-slate-500 mb-1 font-medium">Adding...</p>
+                <pre className="text-xs text-slate-600 whitespace-pre-wrap font-mono">{addExpStreamText}</pre>
+              </div>
+            )}
+            {addExpError && (
+              <p className="mb-3 text-xs text-red-600 bg-red-50 rounded p-2">{addExpError}</p>
+            )}
+
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setAddExpOpen(false)}
+                disabled={addExpStreaming}
+                className="border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg px-4 py-2 text-sm transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddExp}
+                disabled={!selectedExpId || addExpStreaming}
+                className="bg-blue-500 hover:bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50 transition-colors"
+              >
+                {addExpStreaming ? "Adding..." : "Add to Resume"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
