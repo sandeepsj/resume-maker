@@ -13,11 +13,10 @@ Rules:
 - Every experience bullet must start with a strong past-tense action verb (Led, Built, Designed, Reduced, Increased, etc.).
 - Return ONLY valid JSON matching the schema provided. No markdown fences, no explanation text, no preamble.
 
-PAGE-FIT guidance (aim to fit on a single A4 page, but don't sacrifice quality):
+PAGE-FIT guidance (aim to fit on a single A4 page):
 - Summary: 2-3 sentences.
-- Experience bullets: 3-5 bullets per role. Each bullet should be impactful but concise (1-2 lines).
-- Skills: group into 3-5 categories. Combine small categories if it makes sense.
-- Include all relevant experiences — don't skip roles to save space.`;
+- Skills: MAXIMUM 4 bullet points. Aggressively merge categories (e.g. "Languages & Frameworks: React, TypeScript, Python, Django, Node.js"). Each line should pack multiple skills comma-separated. Skills section should be compact — save space for experience.
+- Experience: this is the MOST IMPORTANT section — use the space saved from skills here. 3-5 impactful bullets per role, 1-2 lines each. Include all relevant experiences.`;
 
 export function buildGenerateResumePrompt(params: {
   profile: UserProfileData;
