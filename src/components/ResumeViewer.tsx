@@ -71,7 +71,7 @@ export function ResumeViewer({
   companyName,
   jobDescription,
 }: ResumeViewerProps) {
-  const { accessToken } = useAuth();
+  const { accessToken, user } = useAuth();
   const [content, setContent] = useState(initialContent);
   const [comments, setComments] = useState<CommentData[]>(initialComments);
   const [floatingBtn, setFloatingBtn] = useState<FloatingButton | null>(null);
@@ -243,8 +243,8 @@ export function ResumeViewer({
 
       const userPrompt = buildGenerateResumePrompt({
         profile: prof,
-        userEmail: prof.id,
-        userName: prof.headline || "",
+        userEmail: user?.email || "",
+        userName: user?.name || "",
         experiences: allExp,
         educations: edu,
         skills: sk,

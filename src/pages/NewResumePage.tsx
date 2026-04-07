@@ -26,7 +26,7 @@ interface JobDetails {
 
 export function NewResumePage() {
   const navigate = useNavigate();
-  const { accessToken } = useAuth();
+  const { accessToken, user } = useAuth();
   const [step, setStep] = useState<Step>(1);
 
   const [jobDetails, setJobDetails] = useState<JobDetails>({
@@ -97,8 +97,8 @@ export function NewResumePage() {
 
       const userPrompt = buildGenerateResumePrompt({
         profile,
-        userEmail: profile.id,
-        userName: profile.headline || "",
+        userEmail: user?.email || "",
+        userName: user?.name || "",
         experiences: selectedExperiences,
         educations: education,
         skills,
