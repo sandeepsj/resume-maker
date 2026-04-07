@@ -76,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return;
           }
           const token = response.access_token;
-          sessionStorage.setItem("access_token", token);
+          localStorage.setItem("access_token", token);
           setAccessToken(token);
           const userInfo = await fetchUserInfo(token);
           if (userInfo) {
@@ -103,10 +103,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Restore session from sessionStorage on mount
+  // Restore session from localStorage on mount (works across tabs for print)
   useEffect(() => {
     const restore = async () => {
-      const storedToken = sessionStorage.getItem("access_token");
+      const storedToken = localStorage.getItem("access_token");
       if (storedToken) {
         const userInfo = await fetchUserInfo(storedToken);
         if (userInfo) {
@@ -114,7 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(userInfo);
         } else {
           // Token expired or invalid
-          sessionStorage.removeItem("access_token");
+          localStorage.removeItem("access_token");
         }
       }
       setIsLoading(false);
@@ -136,11 +136,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(() => {
-    const token = accessToken || sessionStorage.getItem("access_token");
+    const token = accessToken || localStorage.getItem("access_token");
     if (token) {
       google.accounts.oauth2.revoke(token, () => {});
     }
-    sessionStorage.removeItem("access_token");
+    localStorage.removeItem("access_token");
     clearDataCache();
     setUser(null);
     setAccessToken(null);

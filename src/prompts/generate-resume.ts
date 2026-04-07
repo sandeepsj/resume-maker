@@ -13,11 +13,11 @@ Rules:
 - Every experience bullet must start with a strong past-tense action verb (Led, Built, Designed, Reduced, Increased, etc.).
 - Return ONLY valid JSON matching the schema provided. No markdown fences, no explanation text, no preamble.
 
-PAGE-FIT constraints (the resume MUST fit on a single A4 page):
-- Summary: maximum 2-3 short sentences (no more than 3 lines when printed at 11.5px font).
-- Experience bullets: 2-4 concise bullets per role. Each bullet should be 1 line (under 100 characters) when possible.
-- Skills: group into 3-4 categories maximum. Combine related categories (e.g. merge "Tools" and "Frameworks" if few items).
-- Keep the overall resume compact — prioritize impact density over comprehensiveness.`;
+PAGE-FIT guidance (aim to fit on a single A4 page, but don't sacrifice quality):
+- Summary: 2-3 sentences.
+- Experience bullets: 3-5 bullets per role. Each bullet should be impactful but concise (1-2 lines).
+- Skills: group into 3-5 categories. Combine small categories if it makes sense.
+- Include all relevant experiences — don't skip roles to save space.`;
 
 export function buildGenerateResumePrompt(params: {
   profile: UserProfileData;
