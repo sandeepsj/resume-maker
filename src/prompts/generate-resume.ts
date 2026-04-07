@@ -11,9 +11,13 @@ Rules:
 - Mirror keywords and phrases from the job description naturally (ATS optimization).
 - Keep the tone professional, confident, and achievement-focused.
 - Every experience bullet must start with a strong past-tense action verb (Led, Built, Designed, Reduced, Increased, etc.).
-- The summary should be 2-3 sentences, tailored to the specific role and company.
-- Group skills logically by category.
-- Return ONLY valid JSON matching the schema provided. No markdown fences, no explanation text, no preamble.`;
+- Return ONLY valid JSON matching the schema provided. No markdown fences, no explanation text, no preamble.
+
+PAGE-FIT constraints (the resume MUST fit on a single A4 page):
+- Summary: maximum 2-3 short sentences (no more than 3 lines when printed at 11.5px font).
+- Experience bullets: 2-4 concise bullets per role. Each bullet should be 1 line (under 100 characters) when possible.
+- Skills: group into 3-4 categories maximum. Combine related categories (e.g. merge "Tools" and "Frameworks" if few items).
+- Keep the overall resume compact — prioritize impact density over comprehensiveness.`;
 
 export function buildGenerateResumePrompt(params: {
   profile: UserProfileData;

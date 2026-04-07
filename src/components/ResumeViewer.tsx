@@ -27,6 +27,7 @@ import {
 import type { CommentData } from "@/lib/google-drive";
 import type { ResumeContent } from "@/types/resume";
 import type { ExperienceData } from "@/types/career";
+import { FitToPage } from "@/components/FitToPage";
 
 interface FloatingButton {
   x: number;
@@ -95,9 +96,20 @@ export function ResumeViewer({
   const [addExpStreaming, setAddExpStreaming] = useState(false);
   const [addExpStreamText, setAddExpStreamText] = useState("");
   const [addExpError, setAddExpError] = useState("");
+  const [fitToPageOpen, setFitToPageOpen] = useState(false);
+  const [pageOverflow, setPageOverflow] = useState(0);
   const resumeRef = useRef<HTMLDivElement>(null);
+  const printMeasureRef = useRef<HTMLDivElement>(null);
 
-  // SSE helper removed — using ai-client module instead
+  // Measure page overflow whenever content changes
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      if (printMeasureRef.current) {
+        const h = printMeasureRef.current.scrollHeight;
+        setPageOverflow(Math.max(0, h - 1123)); // A4 = 1123px at 96dpi
+      }
+    });
+  }, [content]);
 
   // --- Text selection ---
   const evaluateSelection = useCallback(() => {
@@ -312,6 +324,15 @@ export function ResumeViewer({
           <span className="text-sm font-medium text-slate-700 truncate max-w-xs">{resumeTitle}</span>
         </div>
         <div className="flex items-center gap-3">
+          {pageOverflow > 0 && (
+            <button onClick={() => setFitToPageOpen(true)}
+              className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-1.5 text-sm font-medium hover:bg-red-100 transition-colors">
+              Overflows A4 — Fit to Page
+            </button>
+          )}
+          {pageOverflow <= 0 && (
+            <span className="text-xs text-green-600 bg-green-50 border border-green-200 rounded-lg px-3 py-1.5">Fits A4</span>
+          )}
           <button onClick={() => setSidebarOpen((v) => !v)}
             className="border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg px-3 py-1.5 text-sm transition-colors">
             {sidebarOpen ? "Hide" : "Show"} Comments ({activeComments.length})
@@ -576,6 +597,80 @@ export function ResumeViewer({
           </div>
         </div>
       )}
+
+      {/* Fit to Page modal */}
+      {fitToPageOpen && (
+        <FitToPage
+          content={content}
+          accessToken={accessToken!}
+          onApply={async (updated) => {
+            await updateResume(resumeId, { content: updated });
+            setContent(updated);
+            setFitToPageOpen(false);
+          }}
+          onClose={() => setFitToPageOpen(false)}
+        />
+      )}
+
+      {/* Hidden A4 measurement container */}
+      <div className="fixed left-[-9999px] top-0" aria-hidden>
+        <div ref={printMeasureRef} className="w-[794px] bg-white px-[60px] py-[48px]" style={{ fontFamily: "var(--font-sans)" }}>
+          <MeasurePreview content={content} />
+        </div>
+      </div>
     </div>
+  );
+}
+
+/** Minimal print-style rendering for measuring overflow height */
+function MeasurePreview({ content }: { content: ResumeContent }) {
+  const { header, summary, experience, education, skills, certifications } = content;
+  return (
+    <>
+      <div className="mb-5 pb-4 border-b border-slate-300">
+        <h1 className="text-[26px] font-bold leading-tight">{header.name}</h1>
+        {header.headline && <p className="text-[13px] mt-1">{header.headline}</p>}
+        <div className="flex flex-wrap gap-x-3 mt-2 text-[11px]">
+          <span>{header.email}</span>
+          {header.phone && <span>· {header.phone}</span>}
+          {header.location && <span>· {header.location}</span>}
+        </div>
+      </div>
+      {summary && (
+        <div className="mb-4"><h2 className="text-[10px] font-bold uppercase tracking-widest mb-1.5">Summary</h2>
+          <p className="text-[11.5px] leading-relaxed">{summary}</p></div>
+      )}
+      {experience.length > 0 && (
+        <div className="mb-4"><h2 className="text-[10px] font-bold uppercase tracking-widest mb-2">Experience</h2>
+          <div className="space-y-3.5">{experience.map((exp, i) => (
+            <div key={i}><div className="flex justify-between"><div>
+              <p className="text-[12px] font-semibold">{exp.title}</p>
+              <p className="text-[11px]">{exp.company}{exp.location ? ` · ${exp.location}` : ""}</p>
+            </div><p className="text-[10.5px] shrink-0 ml-3">{exp.startDate} — {exp.endDate ?? "Present"}</p></div>
+            {exp.bullets.length > 0 && <ul className="mt-1 space-y-0.5 pl-1">{exp.bullets.map((b, bi) => (
+              <li key={bi} className="flex gap-2 text-[11px] leading-snug"><span className="shrink-0 mt-0.5">•</span><span>{b}</span></li>
+            ))}</ul>}</div>
+          ))}</div></div>
+      )}
+      {education.length > 0 && (
+        <div className="mb-4"><h2 className="text-[10px] font-bold uppercase tracking-widest mb-2">Education</h2>
+          {education.map((edu, i) => (
+            <div key={i} className="flex justify-between mb-1"><div>
+              <p className="text-[12px] font-semibold">{edu.degree}{edu.field ? ` in ${edu.field}` : ""}</p>
+              <p className="text-[11px]">{edu.institution}</p>
+            </div><p className="text-[10.5px] shrink-0 ml-3">{edu.graduationDate}</p></div>
+          ))}</div>
+      )}
+      {skills.length > 0 && (
+        <div className="mb-4"><h2 className="text-[10px] font-bold uppercase tracking-widest mb-2">Skills</h2>
+          {skills.map((g, i) => (
+            <div key={i} className="flex gap-2 text-[11px]"><span className="font-semibold shrink-0 w-[130px]">{g.category}:</span><span>{g.skills.join(", ")}</span></div>
+          ))}</div>
+      )}
+      {certifications && certifications.length > 0 && (
+        <div className="mb-4"><h2 className="text-[10px] font-bold uppercase tracking-widest mb-2">Certifications</h2>
+          {certifications.map((c, i) => (<div key={i} className="text-[11px]"><span className="font-medium">{c.name}</span> · {c.issuer}</div>))}</div>
+      )}
+    </>
   );
 }
