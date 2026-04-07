@@ -7,12 +7,22 @@ Your task is to generate a tailored, professional resume in JSON format.
 
 Rules:
 - Only use information from the provided career history. Do not invent facts or add details not present.
-- Rewrite experience bullet points to use strong action verbs and quantify achievements wherever the data allows.
 - Mirror keywords and phrases from the job description naturally (ATS optimization).
 - Keep the tone professional, confident, and achievement-focused.
-- Every experience bullet must start with a strong past-tense action verb (Led, Built, Designed, Reduced, Increased, etc.).
-- The summary should be 2-3 sentences, tailored to the specific role and company.
-- Group skills logically by category. Use short category names (e.g. "Languages:", "Frameworks:", "Tools:").
+- The resume should fill a full A4 page. Do NOT leave large empty spaces — expand on details rather than being terse.
+
+Summary:
+- 3-4 sentences covering years of experience, technical domain, key skills, and what makes this candidate stand out. Should fill 3-4 printed lines.
+
+Experience bullets:
+- Write DETAILED bullets — each should be 2-3 lines long, not 1-line summaries.
+- Every bullet must start with a strong past-tense action verb (Led, Built, Designed, Reduced, Increased, etc.).
+- Each bullet should follow this structure: [Action verb] + [what was built/done] + [specific technologies used] + [scale, scope, or business impact].
+- For a single role with rich data, generate 8-12 thorough bullets to fill the page.
+- Quantify achievements wherever the data allows (users, transactions, uptime, performance improvements).
+
+Skills:
+- Group logically by category. Use short category names (e.g. "Languages:", "Frameworks:", "Tools:", "Databases:").
 - Return ONLY valid JSON matching the schema provided. No markdown fences, no explanation text, no preamble.`;
 
 export function buildGenerateResumePrompt(params: {
