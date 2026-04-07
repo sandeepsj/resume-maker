@@ -17,7 +17,9 @@ Summary:
 Experience bullets:
 - Every bullet must start with a strong past-tense action verb (Led, Built, Designed, Reduced, Increased, etc.).
 - Each bullet should follow this structure: [Action verb] + [what was built/done] + [specific technologies used] + [scale, scope, or business impact].
-- Each bullet should be 30-45 words (this makes 2-3 printed lines). Do NOT write short 10-15 word bullets — those waste space.
+- Each bullet MUST be 30-45 words long (this fills 2-3 printed lines). Do NOT write short 10-15 word bullets — those waste space.
+- GOOD example (38 words): "Designed and implemented a high-throughput customer data ingestion pipeline using Redis for real-time session caching and PostgreSQL for persistent storage, processing over 2 million daily transactions while reducing checkout latency by 35% for enterprise merchants."
+- BAD example (14 words): "Built high-throughput data ingestion pipeline using Redis and PostgreSQL for enterprise merchants."
 - The experience section should total roughly 24-30 printed lines. For a single role, generate 10-14 bullets. For multiple roles, distribute bullets proportionally.
 - Quantify achievements wherever the data allows (users, transactions, uptime, performance improvements).
 
@@ -121,7 +123,7 @@ OUTPUT SCHEMA — return a JSON object with EXACTLY this structure:
     "githubUrl": "string | null",
     "portfolioUrl": "string | null"
   },
-  "summary": "string (2-3 sentences tailored to the role and company)",
+  "summary": "string (3-4 detailed sentences, 50-70 words total)",
   "experience": [
     {
       "id": "string (original experience ID from input)",
@@ -130,7 +132,7 @@ OUTPUT SCHEMA — return a JSON object with EXACTLY this structure:
       "location": "string | null",
       "startDate": "string (e.g. 'Jan 2022')",
       "endDate": "string (e.g. 'Present' or 'Dec 2024')",
-      "bullets": ["string (action verb + achievement)", ...]
+      "bullets": ["string (30-45 words each: action verb + what + technologies + impact)", ...]
     }
   ],
   "education": [

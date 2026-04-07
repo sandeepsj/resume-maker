@@ -111,7 +111,7 @@ export async function generateResume(params: {
 }): Promise<ResumeContent> {
   const fullText = await streamAI({
     ...params,
-    maxTokens: 4096,
+    maxTokens: 8192,
     temperature: 0.3,
   });
 
