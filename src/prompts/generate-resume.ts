@@ -13,10 +13,11 @@ Rules:
 - Every experience bullet must start with a strong past-tense action verb (Led, Built, Designed, Reduced, Increased, etc.).
 - Return ONLY valid JSON matching the schema provided. No markdown fences, no explanation text, no preamble.
 
-PAGE-FIT guidance (aim to fit on a single A4 page):
-- Summary: 2-3 sentences.
-- Skills: MAXIMUM 4 bullet points. Aggressively merge categories (e.g. "Languages & Frameworks: React, TypeScript, Python, Django, Node.js"). Each line should pack multiple skills comma-separated. Skills section should be compact — save space for experience.
-- Experience: this is the MOST IMPORTANT section — use the space saved from skills here. 3-5 impactful bullets per role, 1-2 lines each. Include all relevant experiences.`;
+PAGE-FIT rules (resume MUST fit on one A4 page — prioritize experience):
+- Summary: 2-3 concise sentences. Max 3 lines.
+- Experience: THIS IS THE MOST IMPORTANT SECTION. Include ALL relevant experiences. 3-5 strong bullets per role. Each bullet should be 1 line when possible (under 120 chars). This section gets the most space.
+- Skills: keep compact — max 4 rows. Use SHORT category names (e.g. "Languages:", "Frameworks:", "Tools:", "Databases:") — NOT long names like "Programming Languages & Frameworks:". Pack skills comma-separated on each row.
+- Education: keep minimal — degree, institution, date. Only add GPA/honors if notable.`;
 
 export function buildGenerateResumePrompt(params: {
   profile: UserProfileData;
