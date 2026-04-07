@@ -531,38 +531,40 @@ function resumeAppProperties(resume: DriveResumeFile): Record<string, string> {
 
 async function _fetchResumes(): Promise<ResumeListItem[]> {
   const resumesFolderId = await getResumesFolderId();
-  // Find all resume.json files inside the resumes/ folder tree that have our appProperties
   const q = `'${resumesFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
   const folders = await driveQuery(q, "files(id,name,appProperties)");
 
-  // For each folder, find the resume.json and read its appProperties
-  const items: ResumeListItem[] = [];
+  // Fetch all resume metadata in parallel (not sequentially)
+  const results = await Promise.allSettled(
+    folders.map(async (folder) => {
+      const fileId = await findFileByName(folder.id, "resume.json");
+      if (!fileId) return null;
 
-  for (const folder of folders) {
-    const fileId = await findFileByName(folder.id, "resume.json");
-    if (!fileId) continue;
+      const metaRes = await fetch(`${DRIVE_API}/files/${fileId}?fields=id,appProperties`, {
+        headers: headers(),
+      });
+      if (!metaRes.ok) return null;
+      const meta = await metaRes.json();
+      const props = meta.appProperties || {};
 
-    // Read appProperties from the file
-    const metaRes = await fetch(`${DRIVE_API}/files/${fileId}?fields=id,appProperties`, {
-      headers: headers(),
-    });
-    if (!metaRes.ok) continue;
-    const meta = await metaRes.json();
-    const props = meta.appProperties || {};
+      return {
+        id: props.resumeId || folder.name,
+        title: props.title || folder.name,
+        jobTitle: props.jobTitle || undefined,
+        companyName: props.companyName || undefined,
+        status: (props.status as ResumeStatus) || "DRAFT",
+        createdAt: props.createdAt || "",
+        updatedAt: props.updatedAt || "",
+        driveFileId: fileId,
+      } as ResumeListItem;
+    })
+  );
 
-    items.push({
-      id: props.resumeId || folder.name,
-      title: props.title || folder.name,
-      jobTitle: props.jobTitle || undefined,
-      companyName: props.companyName || undefined,
-      status: (props.status as ResumeStatus) || "DRAFT",
-      createdAt: props.createdAt || "",
-      updatedAt: props.updatedAt || "",
-      driveFileId: fileId,
-    });
-  }
+  const items = results
+    .filter((r): r is PromiseFulfilledResult<ResumeListItem | null> => r.status === "fulfilled")
+    .map((r) => r.value)
+    .filter((item): item is ResumeListItem => item !== null);
 
-  // Sort by createdAt descending
   items.sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1));
   return items;
 }

@@ -6,10 +6,27 @@ import type { ResumeListItem } from "@/lib/google-drive";
 
 export function ResumesPage() {
   const [resumes, setResumes] = useState<ResumeListItem[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    listResumes((fresh) => setResumes(fresh)).then(setResumes).catch(console.error);
+    listResumes((fresh) => setResumes(fresh))
+      .then(setResumes)
+      .catch((err) => {
+        console.error("Failed to load resumes:", err);
+        setError(err.message || "Failed to load resumes");
+        setResumes([]);
+      });
   }, []);
+
+  if (error) {
+    return (
+      <div className="p-8 max-w-5xl mx-auto">
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+          {error}. Try signing out and back in.
+        </div>
+      </div>
+    );
+  }
 
   if (!resumes) {
     return (
