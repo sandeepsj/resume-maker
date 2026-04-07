@@ -28,6 +28,7 @@ import type { CommentData } from "@/lib/google-drive";
 import type { ResumeContent } from "@/types/resume";
 import type { ExperienceData } from "@/types/career";
 import { FitToPage } from "@/components/FitToPage";
+import { ATSScore } from "@/components/ATSScore";
 
 interface FloatingButton {
   x: number;
@@ -97,6 +98,7 @@ export function ResumeViewer({
   const [addExpStreamText, setAddExpStreamText] = useState("");
   const [addExpError, setAddExpError] = useState("");
   const [fitToPageOpen, setFitToPageOpen] = useState(false);
+  const [atsScoreOpen, setAtsScoreOpen] = useState(false);
   const [pageOverflow, setPageOverflow] = useState(0);
   const resumeRef = useRef<HTMLDivElement>(null);
   const printMeasureRef = useRef<HTMLDivElement>(null);
@@ -337,6 +339,10 @@ export function ResumeViewer({
             className="border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg px-3 py-1.5 text-sm transition-colors">
             {sidebarOpen ? "Hide" : "Show"} Comments ({activeComments.length})
           </button>
+          {jobDescription && (
+            <button onClick={() => setAtsScoreOpen(true)}
+              className="border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg px-3 py-1.5 text-sm transition-colors">ATS Score</button>
+          )}
           <button onClick={() => { setRegenOpen(true); setRegenInstructions(""); setRegenStreamText(""); setRegenError(""); }}
             className="border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg px-3 py-1.5 text-sm transition-colors">Regenerate</button>
           <button onClick={openAddExpModal}
@@ -596,6 +602,16 @@ export function ResumeViewer({
             </div>
           </div>
         </div>
+      )}
+
+      {/* ATS Score modal */}
+      {atsScoreOpen && jobDescription && (
+        <ATSScore
+          content={content}
+          jobDescription={jobDescription}
+          accessToken={accessToken!}
+          onClose={() => setAtsScoreOpen(false)}
+        />
       )}
 
       {/* Fit to Page modal */}
