@@ -11,7 +11,7 @@ import type { ResumeContent } from "@/types/resume";
 const LLM_PROXY_URL =
   import.meta.env.VITE_LLM_PROXY_URL || "https://llm-proxy-smoky.vercel.app";
 
-const DEFAULT_MODEL = "claude-sonnet-4-6-20250514";
+const DEFAULT_MODEL = "claude-sonnet-4-20250514";
 
 interface StreamAIOptions {
   systemPrompt: string;
