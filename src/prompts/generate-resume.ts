@@ -9,7 +9,7 @@ Rules:
 - Only use information from the provided career history. Do not invent facts or add details not present.
 - Mirror keywords and phrases from the job description naturally (ATS optimization).
 - Keep the tone professional, confident, and achievement-focused.
-- The resume should fill a full A4 page. Do NOT leave large empty spaces — expand on details rather than being terse.
+- Generate MORE content than fits on one A4 page — aim for about 110-120% of a page. The user will trim what's less important. It's better to have too much good content to choose from than too little.
 
 Summary:
 - 3-4 sentences covering years of experience, technical domain, key skills, and what makes this candidate stand out. Should fill 3-4 printed lines.
@@ -18,7 +18,7 @@ Experience bullets:
 - Write DETAILED bullets — each should be 2-3 lines long, not 1-line summaries.
 - Every bullet must start with a strong past-tense action verb (Led, Built, Designed, Reduced, Increased, etc.).
 - Each bullet should follow this structure: [Action verb] + [what was built/done] + [specific technologies used] + [scale, scope, or business impact].
-- For a single role with rich data, generate 8-12 thorough bullets to fill the page.
+- For a single role with rich data, generate 10-14 thorough bullets to overfill the page slightly.
 - Quantify achievements wherever the data allows (users, transactions, uptime, performance improvements).
 
 Skills:
