@@ -11,10 +11,32 @@ export function PrintPage() {
 
   useEffect(() => {
     if (!resumeId) return;
-    getResume(resumeId)
-      .then((r) => setContent(r?.content ?? null))
-      .catch(() => setContent(null))
-      .finally(() => setLoading(false));
+    let attempts = 0;
+    const tryLoad = () => {
+      getResume(resumeId)
+        .then((r) => {
+          if (r?.content) {
+            setContent(r.content);
+            setLoading(false);
+          } else if (attempts < 2) {
+            // Retry once — Drive folder cache may be cold in new tab
+            attempts++;
+            setTimeout(tryLoad, 1000);
+          } else {
+            setLoading(false);
+          }
+        })
+        .catch((err) => {
+          console.error("Print page load error:", err);
+          if (attempts < 2) {
+            attempts++;
+            setTimeout(tryLoad, 1000);
+          } else {
+            setLoading(false);
+          }
+        });
+    };
+    tryLoad();
   }, [resumeId]);
 
   if (loading) {

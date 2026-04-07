@@ -571,13 +571,21 @@ export async function listResumes(onUpdate?: (d: ResumeListItem[]) => void): Pro
   return cachedRead("resumes", _fetchResumes, onUpdate);
 }
 
-export async function getResume(resumeId: string): Promise<DriveResumeFile | null> {
+async function _fetchResume(resumeId: string): Promise<DriveResumeFile | null> {
   const resumesFolderId = await getResumesFolderId();
   const folderId = await findFileByName(resumesFolderId, resumeId);
   if (!folderId) return null;
   const fileId = await findFileByName(folderId, "resume.json");
   if (!fileId) return null;
   return readJsonFile<DriveResumeFile>(fileId);
+}
+
+export async function getResume(resumeId: string): Promise<DriveResumeFile | null> {
+  const cached = cacheGet<DriveResumeFile>(`resume_${resumeId}`);
+  if (cached) return cached;
+  const data = await _fetchResume(resumeId);
+  if (data) cacheSet(`resume_${resumeId}`, data);
+  return data;
 }
 
 export async function createResume(data: {
@@ -630,6 +638,7 @@ export async function updateResume(
   };
 
   await updateJsonFile(fileId, updated, resumeAppProperties(updated));
+  cacheSet(`resume_${resumeId}`, updated);
   cacheDelete("resumes"); // invalidate list cache
   return updated;
 }
