@@ -15,10 +15,10 @@ Summary:
 - 3-4 sentences covering years of experience, technical domain, key skills, and what makes this candidate stand out. Should fill 3-4 printed lines.
 
 Experience bullets:
-- Write DETAILED bullets — each should be 2-3 lines long, not 1-line summaries.
 - Every bullet must start with a strong past-tense action verb (Led, Built, Designed, Reduced, Increased, etc.).
 - Each bullet should follow this structure: [Action verb] + [what was built/done] + [specific technologies used] + [scale, scope, or business impact].
-- For a single role with rich data, generate 10-14 thorough bullets to overfill the page slightly.
+- Each bullet should be 30-45 words (this makes 2-3 printed lines). Do NOT write short 10-15 word bullets — those waste space.
+- The experience section should total roughly 24-30 printed lines. For a single role, generate 10-14 bullets. For multiple roles, distribute bullets proportionally.
 - Quantify achievements wherever the data allows (users, transactions, uptime, performance improvements).
 
 Skills:
