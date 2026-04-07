@@ -26,6 +26,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# migration script (local only)
+migrate.mjs
+
 # env files
 .env
 .env.local
