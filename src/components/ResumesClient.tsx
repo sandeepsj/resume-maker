@@ -24,7 +24,7 @@ export function ResumesClient({ initialResumes }: { initialResumes: ResumeListIt
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!confirm("Delete this draft resume? This cannot be undone.")) return;
+    if (!confirm("Delete this resume? This cannot be undone.")) return;
 
     setDeletingId(id);
     try {
@@ -81,16 +81,14 @@ export function ResumesClient({ initialResumes }: { initialResumes: ResumeListIt
               })}
             </p>
           </Link>
-          {resume.status === "DRAFT" && (
-            <button
-              onClick={(e) => handleDelete(e, resume.id)}
-              disabled={deletingId === resume.id}
-              className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 bg-red-500 hover:bg-red-600 text-white text-xs rounded-md px-2 py-1 transition-all disabled:opacity-50"
-              title="Delete draft"
-            >
-              {deletingId === resume.id ? "Deleting..." : "Delete"}
-            </button>
-          )}
+          <button
+            onClick={(e) => handleDelete(e, resume.id)}
+            disabled={deletingId === resume.id}
+            className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 bg-red-500 hover:bg-red-600 text-white text-xs rounded-md px-2 py-1 transition-all disabled:opacity-50"
+            title="Delete resume"
+          >
+            {deletingId === resume.id ? "Deleting..." : "Delete"}
+          </button>
         </div>
       ))}
     </div>
