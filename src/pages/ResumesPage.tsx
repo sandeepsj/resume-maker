@@ -8,7 +8,7 @@ export function ResumesPage() {
   const [resumes, setResumes] = useState<ResumeListItem[] | null>(null);
 
   useEffect(() => {
-    listResumes().then(setResumes).catch(console.error);
+    listResumes((fresh) => setResumes(fresh)).then(setResumes).catch(console.error);
   }, []);
 
   if (!resumes) {

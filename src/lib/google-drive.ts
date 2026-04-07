@@ -81,8 +81,97 @@ const APP_FOLDER_NAME = "Resume Maker";
 
 const folderCache = new Map<string, string>();
 
-function clearCache() {
+function clearFolderCache() {
   folderCache.clear();
+}
+
+// ---------------------------------------------------------------------------
+// Data cache — stale-while-revalidate pattern
+//
+// On read: return cached data immediately, fetch fresh in background.
+// On write: update cache optimistically, then persist to Drive.
+// Cache lives in memory (fast) with localStorage backup (survives refresh).
+// ---------------------------------------------------------------------------
+
+const CACHE_PREFIX = "rm_cache_";
+const CACHE_TTL = 60 * 60 * 1000; // 1 hour — after this, cache is stale but still returned
+
+interface CacheEntry<T> {
+  data: T;
+  ts: number;
+}
+
+function cacheGet<T>(key: string): T | null {
+  // Try memory first (fastest)
+  const memKey = CACHE_PREFIX + key;
+  const mem = _memCache.get(memKey);
+  if (mem) return (mem as CacheEntry<T>).data;
+
+  // Fall back to localStorage
+  try {
+    const raw = localStorage.getItem(memKey);
+    if (!raw) return null;
+    const entry: CacheEntry<T> = JSON.parse(raw);
+    _memCache.set(memKey, entry);
+    return entry.data;
+  } catch {
+    return null;
+  }
+}
+
+function cacheSet<T>(key: string, data: T): void {
+  const memKey = CACHE_PREFIX + key;
+  const entry: CacheEntry<T> = { data, ts: Date.now() };
+  _memCache.set(memKey, entry);
+  try {
+    localStorage.setItem(memKey, JSON.stringify(entry));
+  } catch {
+    // localStorage full or unavailable — memory cache still works
+  }
+}
+
+function cacheDelete(key: string): void {
+  const memKey = CACHE_PREFIX + key;
+  _memCache.delete(memKey);
+  try {
+    localStorage.removeItem(memKey);
+  } catch {}
+}
+
+function cacheClearAll(): void {
+  _memCache.clear();
+  try {
+    const keys = Object.keys(localStorage).filter((k) => k.startsWith(CACHE_PREFIX));
+    keys.forEach((k) => localStorage.removeItem(k));
+  } catch {}
+}
+
+const _memCache = new Map<string, CacheEntry<unknown>>();
+
+/**
+ * Read-through cache: returns cached data if available, fetches fresh in background.
+ * The `onUpdate` callback is called when fresh data arrives (so the UI can re-render).
+ */
+async function cachedRead<T>(
+  key: string,
+  fetcher: () => Promise<T>,
+  onUpdate?: (data: T) => void,
+): Promise<T> {
+  const cached = cacheGet<T>(key);
+
+  if (cached !== null) {
+    // Return cached immediately, refresh in background
+    fetcher().then((fresh) => {
+      cacheSet(key, fresh);
+      onUpdate?.(fresh);
+    }).catch(() => {});
+    return cached;
+  }
+
+  // No cache — must wait for fetch
+  const data = await fetcher();
+  cacheSet(key, data);
+  return data;
 }
 
 // ---------------------------------------------------------------------------
@@ -258,22 +347,55 @@ async function readOrCreate<T>(parentId: string, name: string, defaultValue: T):
 // Profile
 // ---------------------------------------------------------------------------
 
-export async function getProfile(): Promise<UserProfileData> {
+// Raw fetchers (always hit Drive)
+async function _fetchProfile(): Promise<UserProfileData> {
   const appId = await getAppFolderId();
   const { data } = await readOrCreate<UserProfileData>(appId, "profile.json", {
-    id: "profile",
-    headline: null,
-    summary: null,
-    phone: null,
-    location: null,
-    linkedinUrl: null,
-    githubUrl: null,
-    portfolioUrl: null,
+    id: "profile", headline: null, summary: null, phone: null, location: null,
+    linkedinUrl: null, githubUrl: null, portfolioUrl: null,
   });
   return data;
 }
 
+async function _fetchExperiences(): Promise<ExperienceData[]> {
+  const careerId = await getCareerFolderId();
+  const { data } = await readOrCreate<ExperienceData[]>(careerId, "experiences.json", []);
+  return data;
+}
+
+async function _fetchEducation(): Promise<EducationData[]> {
+  const careerId = await getCareerFolderId();
+  const { data } = await readOrCreate<EducationData[]>(careerId, "education.json", []);
+  return data;
+}
+
+async function _fetchSkills(): Promise<SkillData[]> {
+  const careerId = await getCareerFolderId();
+  const { data } = await readOrCreate<SkillData[]>(careerId, "skills.json", []);
+  return data;
+}
+
+// Cached getters — return instantly from cache, refresh from Drive in background
+export async function getProfile(onUpdate?: (d: UserProfileData) => void): Promise<UserProfileData> {
+  return cachedRead("profile", _fetchProfile, onUpdate);
+}
+
+export async function getExperiences(onUpdate?: (d: ExperienceData[]) => void): Promise<ExperienceData[]> {
+  return cachedRead("experiences", _fetchExperiences, onUpdate);
+}
+
+export async function getEducation(onUpdate?: (d: EducationData[]) => void): Promise<EducationData[]> {
+  return cachedRead("education", _fetchEducation, onUpdate);
+}
+
+export async function getSkills(onUpdate?: (d: SkillData[]) => void): Promise<SkillData[]> {
+  return cachedRead("skills", _fetchSkills, onUpdate);
+}
+
+// Write functions — update cache optimistically, then persist to Drive
+
 export async function saveProfile(profile: UserProfileData): Promise<void> {
+  cacheSet("profile", profile);
   const appId = await getAppFolderId();
   const fileId = await findFileByName(appId, "profile.json");
   if (fileId) {
@@ -287,13 +409,8 @@ export async function saveProfile(profile: UserProfileData): Promise<void> {
 // Career: Experiences
 // ---------------------------------------------------------------------------
 
-export async function getExperiences(): Promise<ExperienceData[]> {
-  const careerId = await getCareerFolderId();
-  const { data } = await readOrCreate<ExperienceData[]>(careerId, "experiences.json", []);
-  return data;
-}
-
-export async function saveExperiences(experiences: ExperienceData[]): Promise<void> {
+async function _saveExperiences(experiences: ExperienceData[]): Promise<void> {
+  cacheSet("experiences", experiences);
   const careerId = await getCareerFolderId();
   const fileId = await findFileByName(careerId, "experiences.json");
   if (fileId) {
@@ -303,38 +420,35 @@ export async function saveExperiences(experiences: ExperienceData[]): Promise<vo
   }
 }
 
+export const saveExperiences = _saveExperiences;
+
 export async function addExperience(exp: Omit<ExperienceData, "id">): Promise<ExperienceData> {
-  const experiences = await getExperiences();
+  const experiences = await _fetchExperiences();
   const newExp: ExperienceData = { ...exp, id: crypto.randomUUID() };
   experiences.unshift(newExp);
-  await saveExperiences(experiences);
+  await _saveExperiences(experiences);
   return newExp;
 }
 
 export async function updateExperience(id: string, data: Partial<ExperienceData>): Promise<void> {
-  const experiences = await getExperiences();
+  const experiences = await _fetchExperiences();
   const idx = experiences.findIndex((e) => e.id === id);
   if (idx === -1) throw new Error("Experience not found");
   experiences[idx] = { ...experiences[idx], ...data };
-  await saveExperiences(experiences);
+  await _saveExperiences(experiences);
 }
 
 export async function deleteExperience(id: string): Promise<void> {
-  const experiences = await getExperiences();
-  await saveExperiences(experiences.filter((e) => e.id !== id));
+  const experiences = await _fetchExperiences();
+  await _saveExperiences(experiences.filter((e) => e.id !== id));
 }
 
 // ---------------------------------------------------------------------------
 // Career: Education
 // ---------------------------------------------------------------------------
 
-export async function getEducation(): Promise<EducationData[]> {
-  const careerId = await getCareerFolderId();
-  const { data } = await readOrCreate<EducationData[]>(careerId, "education.json", []);
-  return data;
-}
-
-export async function saveEducation(education: EducationData[]): Promise<void> {
+async function _saveEducation(education: EducationData[]): Promise<void> {
+  cacheSet("education", education);
   const careerId = await getCareerFolderId();
   const fileId = await findFileByName(careerId, "education.json");
   if (fileId) {
@@ -344,38 +458,35 @@ export async function saveEducation(education: EducationData[]): Promise<void> {
   }
 }
 
+export const saveEducation = _saveEducation;
+
 export async function addEducationItem(edu: Omit<EducationData, "id">): Promise<EducationData> {
-  const education = await getEducation();
+  const education = await _fetchEducation();
   const newEdu: EducationData = { ...edu, id: crypto.randomUUID() };
   education.unshift(newEdu);
-  await saveEducation(education);
+  await _saveEducation(education);
   return newEdu;
 }
 
 export async function updateEducationItem(id: string, data: Partial<EducationData>): Promise<void> {
-  const education = await getEducation();
+  const education = await _fetchEducation();
   const idx = education.findIndex((e) => e.id === id);
   if (idx === -1) throw new Error("Education not found");
   education[idx] = { ...education[idx], ...data };
-  await saveEducation(education);
+  await _saveEducation(education);
 }
 
 export async function deleteEducationItem(id: string): Promise<void> {
-  const education = await getEducation();
-  await saveEducation(education.filter((e) => e.id !== id));
+  const education = await _fetchEducation();
+  await _saveEducation(education.filter((e) => e.id !== id));
 }
 
 // ---------------------------------------------------------------------------
 // Career: Skills
 // ---------------------------------------------------------------------------
 
-export async function getSkills(): Promise<SkillData[]> {
-  const careerId = await getCareerFolderId();
-  const { data } = await readOrCreate<SkillData[]>(careerId, "skills.json", []);
-  return data;
-}
-
-export async function saveSkills(skills: SkillData[]): Promise<void> {
+async function _saveSkills(skills: SkillData[]): Promise<void> {
+  cacheSet("skills", skills);
   const careerId = await getCareerFolderId();
   const fileId = await findFileByName(careerId, "skills.json");
   if (fileId) {
@@ -385,17 +496,19 @@ export async function saveSkills(skills: SkillData[]): Promise<void> {
   }
 }
 
+export const saveSkills = _saveSkills;
+
 export async function addSkill(skill: Omit<SkillData, "id">): Promise<SkillData> {
-  const skills = await getSkills();
+  const skills = await _fetchSkills();
   const newSkill: SkillData = { ...skill, id: crypto.randomUUID() };
   skills.push(newSkill);
-  await saveSkills(skills);
+  await _saveSkills(skills);
   return newSkill;
 }
 
 export async function deleteSkill(id: string): Promise<void> {
-  const skills = await getSkills();
-  await saveSkills(skills.filter((s) => s.id !== id));
+  const skills = await _fetchSkills();
+  await _saveSkills(skills.filter((s) => s.id !== id));
 }
 
 // ---------------------------------------------------------------------------
@@ -416,7 +529,7 @@ function resumeAppProperties(resume: DriveResumeFile): Record<string, string> {
   };
 }
 
-export async function listResumes(): Promise<ResumeListItem[]> {
+async function _fetchResumes(): Promise<ResumeListItem[]> {
   const resumesFolderId = await getResumesFolderId();
   // Find all resume.json files inside the resumes/ folder tree that have our appProperties
   const q = `'${resumesFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
@@ -452,6 +565,10 @@ export async function listResumes(): Promise<ResumeListItem[]> {
   // Sort by createdAt descending
   items.sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1));
   return items;
+}
+
+export async function listResumes(onUpdate?: (d: ResumeListItem[]) => void): Promise<ResumeListItem[]> {
+  return cachedRead("resumes", _fetchResumes, onUpdate);
 }
 
 export async function getResume(resumeId: string): Promise<DriveResumeFile | null> {
@@ -491,6 +608,7 @@ export async function createResume(data: {
   // Create resume.json inside it
   await createJsonFile(folderId, "resume.json", resume, resumeAppProperties(resume));
 
+  cacheDelete("resumes"); // invalidate list cache
   return resume;
 }
 
@@ -512,6 +630,7 @@ export async function updateResume(
   };
 
   await updateJsonFile(fileId, updated, resumeAppProperties(updated));
+  cacheDelete("resumes"); // invalidate list cache
   return updated;
 }
 
@@ -521,8 +640,8 @@ export async function deleteResume(resumeId: string): Promise<void> {
   if (folderId) {
     await deleteFile(folderId);
   }
-  // Clear any cached folder refs
-  clearCache();
+  clearFolderCache();
+  cacheDelete("resumes");
 }
 
 // ---------------------------------------------------------------------------
@@ -580,6 +699,8 @@ export async function deleteComment(resumeId: string, commentId: string): Promis
 // ---------------------------------------------------------------------------
 // Export all as a namespace-like object for convenience
 // ---------------------------------------------------------------------------
+
+export { cacheClearAll as clearDataCache };
 
 export const googleDrive = {
   setTokenAccessor,

@@ -14,8 +14,8 @@ export function DashboardPage() {
     async function load() {
       try {
         const [resumeList, experiences] = await Promise.all([
-          listResumes(),
-          getExperiences(),
+          listResumes((fresh) => setResumes(fresh.slice(0, 5))),
+          getExperiences((fresh) => setHasCareerData(fresh.length > 0)),
         ]);
         setResumes(resumeList.slice(0, 5));
         setHasCareerData(experiences.length > 0);

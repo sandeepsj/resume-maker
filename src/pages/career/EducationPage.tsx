@@ -7,7 +7,7 @@ export function EducationPage() {
   const [education, setEducation] = useState<EducationData[] | null>(null);
 
   useEffect(() => {
-    getEducation().then(setEducation).catch(console.error);
+    getEducation((fresh) => setEducation(fresh)).then(setEducation).catch(console.error);
   }, []);
 
   if (!education) {

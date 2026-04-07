@@ -7,7 +7,7 @@ import {
   useRef,
   type ReactNode,
 } from "react";
-import { setTokenAccessor } from "@/lib/google-drive";
+import { setTokenAccessor, clearDataCache } from "@/lib/google-drive";
 
 interface User {
   name: string;
@@ -141,6 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       google.accounts.oauth2.revoke(token, () => {});
     }
     sessionStorage.removeItem("access_token");
+    clearDataCache();
     setUser(null);
     setAccessToken(null);
   }, [accessToken]);

@@ -7,7 +7,7 @@ export function SkillsPage() {
   const [skills, setSkills] = useState<SkillData[] | null>(null);
 
   useEffect(() => {
-    getSkills().then(setSkills).catch(console.error);
+    getSkills((fresh) => setSkills(fresh)).then(setSkills).catch(console.error);
   }, []);
 
   if (!skills) {

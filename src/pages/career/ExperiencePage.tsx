@@ -7,7 +7,7 @@ export function ExperiencePage() {
   const [experiences, setExperiences] = useState<ExperienceData[] | null>(null);
 
   useEffect(() => {
-    getExperiences().then(setExperiences).catch(console.error);
+    getExperiences((fresh) => setExperiences(fresh)).then(setExperiences).catch(console.error);
   }, []);
 
   if (!experiences) {
