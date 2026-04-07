@@ -20,7 +20,7 @@ Experience bullets:
 - Each bullet MUST be 30-45 words long (this fills 2-3 printed lines). Do NOT write short 10-15 word bullets — those waste space.
 - GOOD example (38 words): "Designed and implemented a high-throughput customer data ingestion pipeline using Redis for real-time session caching and PostgreSQL for persistent storage, processing over 2 million daily transactions while reducing checkout latency by 35% for enterprise merchants."
 - BAD example (14 words): "Built high-throughput data ingestion pipeline using Redis and PostgreSQL for enterprise merchants."
-- The experience section should total roughly 24-30 printed lines. For a single role, generate 10-14 bullets. For multiple roles, distribute bullets proportionally.
+- The experience section should total roughly 20-24 printed lines (15 words per line). For a single role, generate 8-10 bullets. For multiple roles, distribute bullets proportionally.
 - Quantify achievements wherever the data allows (users, transactions, uptime, performance improvements).
 
 Skills:
