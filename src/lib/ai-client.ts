@@ -51,7 +51,8 @@ export async function streamAI(options: StreamAIOptions): Promise<string> {
       body: {
         model,
         max_tokens: maxTokens,
-        temperature,
+        // Opus 4.7 deprecated `temperature`; omit it for that model
+        ...(model.startsWith("claude-opus-4-7") ? {} : { temperature }),
         system: systemPrompt,
         messages: [{ role: "user", content: userPrompt }],
         stream: true,
