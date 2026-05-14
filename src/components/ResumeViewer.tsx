@@ -411,8 +411,12 @@ export function ResumeViewer({
                       <div className="flex items-start justify-between">
                         <div>
                           <h3 className="font-semibold text-slate-900 text-sm">{edu.degree}{edu.field ? ` in ${edu.field}` : ""}</h3>
-                          <p className="text-sm text-slate-600">{edu.institution}</p>
-                          {(edu.gpa || edu.honors) && <p className="text-xs text-slate-500 mt-0.5">{[edu.gpa && `GPA: ${edu.gpa}`, edu.honors].filter(Boolean).join(" · ")}</p>}
+                          <p className="text-sm text-slate-600">
+                            {edu.institution}
+                            {(edu.gpa || edu.honors) && (
+                              <span className="text-slate-500"> — {[edu.gpa && `GPA: ${edu.gpa}`, edu.honors].filter(Boolean).join(" · ")}</span>
+                            )}
+                          </p>
                         </div>
                         <p className="text-xs text-slate-500 shrink-0 ml-4">{formatDate(edu.graduationDate)}</p>
                       </div>
@@ -673,7 +677,7 @@ function MeasurePreview({ content }: { content: ResumeContent }) {
           {education.map((edu, i) => (
             <div key={i} className="flex justify-between mb-1"><div>
               <p className="text-[12px] font-semibold">{edu.degree}{edu.field ? ` in ${edu.field}` : ""}</p>
-              <p className="text-[11px]">{edu.institution}</p>
+              <p className="text-[11px]">{edu.institution}{(edu.gpa || edu.honors) && <span> — {[edu.gpa && `GPA: ${edu.gpa}`, edu.honors].filter(Boolean).join(" · ")}</span>}</p>
             </div><p className="text-[10.5px] shrink-0 ml-3">{edu.graduationDate}</p></div>
           ))}</div>
       )}
