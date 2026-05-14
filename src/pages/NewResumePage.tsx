@@ -117,7 +117,7 @@ export function NewResumePage() {
       await updateResume(resume.id, {
         content,
         status: "READY",
-        aiModel: "claude-sonnet-4-6",
+        aiModel: "claude-opus-4-7",
       });
 
       navigate(`/resumes/${resume.id}`);

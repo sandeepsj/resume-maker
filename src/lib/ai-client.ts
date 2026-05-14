@@ -11,12 +11,14 @@ import type { ResumeContent } from "@/types/resume";
 const LLM_PROXY_URL =
   import.meta.env.VITE_LLM_PROXY_URL || "https://llm-proxy-smoky.vercel.app";
 
-const DEFAULT_MODEL = "claude-sonnet-4-20250514";
+const DEFAULT_MODEL = "claude-opus-4-7";
+const APPLY_EDIT_MODEL = "claude-sonnet-4-6";
 
 interface StreamAIOptions {
   systemPrompt: string;
   userPrompt: string;
   accessToken: string;
+  model?: string;
   maxTokens?: number;
   temperature?: number;
   onChunk?: (text: string) => void;
@@ -31,6 +33,7 @@ export async function streamAI(options: StreamAIOptions): Promise<string> {
     systemPrompt,
     userPrompt,
     accessToken,
+    model = DEFAULT_MODEL,
     maxTokens = 4096,
     temperature = 0.3,
     onChunk,
@@ -46,7 +49,7 @@ export async function streamAI(options: StreamAIOptions): Promise<string> {
       provider: "anthropic",
       endpoint: "messages",
       body: {
-        model: DEFAULT_MODEL,
+        model,
         max_tokens: maxTokens,
         temperature,
         system: systemPrompt,
@@ -129,6 +132,7 @@ export async function applyAIEdit(params: {
 }): Promise<{ updatedResume: ResumeContent; explanation: string }> {
   const fullText = await streamAI({
     ...params,
+    model: APPLY_EDIT_MODEL,
     maxTokens: 4096,
     temperature: 0.1,
   });
