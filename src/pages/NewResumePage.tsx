@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { Undo2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -40,6 +41,37 @@ export function NewResumePage() {
   const [generating, setGenerating] = useState(false);
   const [streamText, setStreamText] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  // Undo history: snapshots of the form state before each change
+  type Snapshot = { step: Step; jobDetails: JobDetails; selectedIds: Set<string> };
+  const [history, setHistory] = useState<Snapshot[]>([]);
+  const prevSnapshot = useRef<Snapshot>({ step, jobDetails, selectedIds });
+  const isUndoing = useRef(false);
+  const isFirstRun = useRef(true);
+
+  useEffect(() => {
+    if (isFirstRun.current) {
+      isFirstRun.current = false;
+      return;
+    }
+    if (isUndoing.current) {
+      isUndoing.current = false;
+      prevSnapshot.current = { step, jobDetails, selectedIds };
+      return;
+    }
+    setHistory((prev) => [...prev, prevSnapshot.current]);
+    prevSnapshot.current = { step, jobDetails, selectedIds };
+  }, [step, jobDetails, selectedIds]);
+
+  const handleUndo = () => {
+    if (history.length === 0) return;
+    const last = history[history.length - 1];
+    isUndoing.current = true;
+    setStep(last.step);
+    setJobDetails(last.jobDetails);
+    setSelectedIds(last.selectedIds);
+    setHistory((prev) => prev.slice(0, -1));
+  };
 
   useEffect(() => {
     if (step === 2 && experiences.length === 0) {
@@ -133,7 +165,18 @@ export function NewResumePage() {
   return (
     <div className="p-8 max-w-3xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900">Create New Resume</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-slate-900">Create New Resume</h1>
+          <button
+            onClick={handleUndo}
+            disabled={history.length === 0 || generating}
+            title="Undo last change"
+            className="flex items-center gap-1.5 border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            <Undo2 className="w-4 h-4" />
+            Undo
+          </button>
+        </div>
         <div className="flex items-center gap-2 mt-3">
           {([1, 2, 3] as Step[]).map((s) => (
             <div key={s} className="flex items-center gap-2">
