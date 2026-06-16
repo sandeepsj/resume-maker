@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { applyAIEdit } from "@/lib/ai-client";
+import { RichText, stripRichText } from "@/components/RichText";
 import type { ResumeContent, ResumeExperience, ResumeEducation, ResumeSkillGroup } from "@/types/resume";
 
 const A4_HEIGHT = 1123; // px at 96dpi
@@ -31,7 +32,7 @@ export function FitToPage({ content, accessToken, onApply, onClose }: FitToPageP
   content.experience.forEach((exp, i) => {
     items.push({ type: "experience", index: i, label: `${exp.title} at ${exp.company}` });
     exp.bullets.forEach((b, bi) => {
-      items.push({ type: "bullet", expIndex: i, bulletIndex: bi, label: b.length > 80 ? b.slice(0, 80) + "..." : b });
+      items.push({ type: "bullet", expIndex: i, bulletIndex: bi, label: stripRichText(b.length > 80 ? b.slice(0, 80) + "..." : b) });
     });
   });
   content.education.forEach((edu, i) => {
@@ -230,7 +231,7 @@ Condense now:`,
                     return (
                       <ItemRow
                         key={bKey}
-                        label={b.length > 90 ? b.slice(0, 90) + "..." : b}
+                        label={stripRichText(b.length > 90 ? b.slice(0, 90) + "..." : b)}
                         checked={!removed.has(bKey)}
                         onChange={() => toggle(bKey)}
                         indent
@@ -377,7 +378,7 @@ function PrintPreview({ content }: { content: ResumeContent }) {
       {summary && (
         <div className="mb-4">
           <h2 className="text-[10px] font-bold uppercase tracking-widest mb-1.5">Summary</h2>
-          <p className="text-[11.5px] leading-relaxed">{summary}</p>
+          <p className="text-[11.5px] leading-relaxed"><RichText text={summary} /></p>
         </div>
       )}
       {experience.length > 0 && (
@@ -397,7 +398,7 @@ function PrintPreview({ content }: { content: ResumeContent }) {
                   <ul className="mt-1 space-y-0.5 pl-1">
                     {exp.bullets.map((b, bi) => (
                       <li key={bi} className="flex gap-2 text-[11px] leading-snug">
-                        <span className="shrink-0 mt-0.5">•</span><span>{b}</span>
+                        <span className="shrink-0 mt-0.5">•</span><span><RichText text={b} /></span>
                       </li>
                     ))}
                   </ul>

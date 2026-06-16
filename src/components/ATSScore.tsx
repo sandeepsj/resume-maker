@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { streamAI } from "@/lib/ai-client";
+import { stripRichText } from "@/components/RichText";
 import type { ResumeContent } from "@/types/resume";
 
 interface ATSScoreProps {
@@ -7,6 +8,8 @@ interface ATSScoreProps {
   jobDescription: string;
   accessToken: string;
   onClose: () => void;
+  /** Called with consolidated feedback so the user can regenerate an improved resume. */
+  onReiterate?: (feedback: string) => void;
 }
 
 interface ScoreBreakdown {
@@ -16,34 +19,43 @@ interface ScoreBreakdown {
   feedback?: string;
 }
 
+type Verdict = "strong" | "moderate" | "weak";
+
 interface ATSResult {
   score: number;
+  verdict: Verdict;
   breakdown: {
     keywordMatch: ScoreBreakdown;
     experienceRelevance: ScoreBreakdown;
     skillsAlignment: ScoreBreakdown;
+    impactQuantification: ScoreBreakdown;
     formatting: ScoreBreakdown;
   };
   suggestions: string[];
 }
 
-const SYSTEM_PROMPT = `You are an ATS (Applicant Tracking System) scoring expert. You analyze resumes against job descriptions and provide detailed compatibility scores.
+const SYSTEM_PROMPT = `You are a STRICT ATS (Applicant Tracking System) and recruiting expert. You grade resumes against a job description using a demanding rubric. Be critical — do not inflate scores. A score of 80+ means the resume is genuinely excellent for THIS role; most first drafts should score 50-75.
 
-Analyze the resume against the job description and return a JSON score report.
+Grade each dimension 0-100 against this rubric:
+- **Keyword Match**: How many key terms, technologies, and phrases from the job description appear in the resume? List found and missing keywords. Penalize missing must-have keywords heavily.
+- **Experience Relevance**: How well does the experience align with the role's requirements (years, domain, responsibilities)? Penalize any included experience or bullets that are irrelevant to this role and add no value — a focused, tailored resume scores higher than a padded one.
+- **Skills Alignment**: How well do the listed skills match what the job requires (hard and soft)?
+- **Impact Quantification**: Are achievements backed by concrete numbers (percentages, counts, time, revenue, scale)? Penalize vague, unmeasured claims. A resume where most bullets lack a metric should score below 50 here.
+- **Formatting**: Is the resume well-structured for ATS parsing? Clear sections, proper hierarchy, no parsing hazards.
 
-Scoring criteria:
-- **Keyword Match (0-100)**: How many key terms, technologies, and phrases from the job description appear in the resume? List found and missing keywords.
-- **Experience Relevance (0-100)**: How well does the candidate's experience align with the role requirements? Consider years, domain, and responsibilities.
-- **Skills Alignment (0-100)**: How well do the listed skills match what the job requires? Consider both hard and soft skills.
-- **Formatting (0-100)**: Is the resume well-structured for ATS parsing? Clear sections, no tables/graphics issues, proper hierarchy.
+Overall score = weighted average: Keyword Match (30%) + Experience Relevance (25%) + Skills Alignment (20%) + Impact Quantification (15%) + Formatting (10%).
 
-The overall score is a weighted average: Keyword Match (35%) + Experience Relevance (30%) + Skills Alignment (25%) + Formatting (10%).
+Set "verdict": "strong" (>=80), "moderate" (60-79), or "weak" (<60).
+
+Suggestions must be specific and actionable — name the exact bullet, keyword, or metric to add or remove so the candidate can iterate.
 
 Return ONLY valid JSON, no markdown fences.`;
 
 function buildPrompt(content: ResumeContent, jobDescription: string): string {
+  // Strip **bold** markers so they don't interfere with keyword matching.
+  const cleanContent = stripRichText(JSON.stringify(content, null, 2));
   return `RESUME CONTENT:
-${JSON.stringify(content, null, 2)}
+${cleanContent}
 
 JOB DESCRIPTION:
 ${jobDescription}
@@ -51,16 +63,37 @@ ${jobDescription}
 Return a JSON object with EXACTLY this structure:
 {
   "score": <number 0-100>,
+  "verdict": "strong" | "moderate" | "weak",
   "breakdown": {
     "keywordMatch": { "score": <0-100>, "found": ["keyword1", ...], "missing": ["keyword1", ...] },
     "experienceRelevance": { "score": <0-100>, "feedback": "1-2 sentence assessment" },
     "skillsAlignment": { "score": <0-100>, "feedback": "1-2 sentence assessment" },
+    "impactQuantification": { "score": <0-100>, "feedback": "1-2 sentence assessment of how well achievements are quantified" },
     "formatting": { "score": <0-100>, "feedback": "1-2 sentence assessment" }
   },
   "suggestions": ["actionable suggestion 1", "actionable suggestion 2", ...]
 }
 
 Analyze now:`;
+}
+
+/** Build a consolidated instruction string to feed back into resume regeneration. */
+function buildReiterationFeedback(result: ATSResult): string {
+  const lines: string[] = [
+    `The current resume scored ${result.score}/100 (${result.verdict}) against the target job. Improve it to address this feedback:`,
+  ];
+  const missing = result.breakdown.keywordMatch.missing;
+  if (missing && missing.length > 0) {
+    lines.push(`- Naturally incorporate these missing keywords where the candidate's real experience supports them: ${missing.join(", ")}.`);
+  }
+  if (result.breakdown.impactQuantification.score < 80) {
+    lines.push(`- Add concrete numbers/metrics to bullets that currently lack quantified impact.`);
+  }
+  if (result.breakdown.experienceRelevance.score < 80) {
+    lines.push(`- Remove or compress experience and bullets that aren't relevant to this role; keep only what adds value.`);
+  }
+  for (const s of result.suggestions) lines.push(`- ${s}`);
+  return lines.join("\n");
 }
 
 function scoreColor(score: number): string {
@@ -75,7 +108,13 @@ function barColor(score: number): string {
   return "bg-red-500";
 }
 
-export function ATSScore({ content, jobDescription, accessToken, onClose }: ATSScoreProps) {
+const VERDICT_LABELS: Record<Verdict, string> = {
+  strong: "Strong match",
+  moderate: "Moderate match",
+  weak: "Weak match",
+};
+
+export function ATSScore({ content, jobDescription, accessToken, onClose, onReiterate }: ATSScoreProps) {
   const [loading, setLoading] = useState(false);
   const [streamText, setStreamText] = useState("");
   const [result, setResult] = useState<ATSResult | null>(null);
@@ -158,6 +197,11 @@ export function ATSScore({ content, jobDescription, accessToken, onClose }: ATSS
                   {result.score}
                 </div>
                 <p className="text-sm text-slate-500 mt-2">Overall ATS Score</p>
+                {result.verdict && (
+                  <span className={`inline-block mt-1 text-xs font-medium px-2.5 py-0.5 rounded-full ${scoreColor(result.score)}`}>
+                    {VERDICT_LABELS[result.verdict] ?? result.verdict}
+                  </span>
+                )}
               </div>
 
               {/* Breakdown */}
@@ -165,6 +209,7 @@ export function ATSScore({ content, jobDescription, accessToken, onClose }: ATSS
                 <ScoreBar label="Keyword Match" score={result.breakdown.keywordMatch.score} />
                 <ScoreBar label="Experience Relevance" score={result.breakdown.experienceRelevance.score} />
                 <ScoreBar label="Skills Alignment" score={result.breakdown.skillsAlignment.score} />
+                <ScoreBar label="Impact Quantification" score={result.breakdown.impactQuantification?.score ?? 0} />
                 <ScoreBar label="Formatting" score={result.breakdown.formatting.score} />
               </div>
 
@@ -195,6 +240,7 @@ export function ATSScore({ content, jobDescription, accessToken, onClose }: ATSS
               {[
                 { label: "Experience", fb: result.breakdown.experienceRelevance.feedback },
                 { label: "Skills", fb: result.breakdown.skillsAlignment.feedback },
+                { label: "Impact Quantification", fb: result.breakdown.impactQuantification?.feedback },
                 { label: "Formatting", fb: result.breakdown.formatting.feedback },
               ].filter((f) => f.fb).map((f, i) => (
                 <div key={i}>
@@ -218,8 +264,14 @@ export function ATSScore({ content, jobDescription, accessToken, onClose }: ATSS
                 </div>
               )}
 
-              {/* Re-run */}
-              <div className="pt-2">
+              {/* Actions */}
+              <div className="pt-2 flex items-center gap-4 border-t border-slate-100 mt-2">
+                {onReiterate && (
+                  <button onClick={() => onReiterate(buildReiterationFeedback(result))}
+                    className="bg-blue-500 hover:bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors">
+                    Improve resume with this feedback
+                  </button>
+                )}
                 <button onClick={handleCheck}
                   className="text-sm text-blue-600 hover:text-blue-800 font-medium">Re-analyze</button>
               </div>

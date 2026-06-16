@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { getResume } from "@/lib/google-drive";
 import { PrintTrigger } from "@/components/PrintTrigger";
+import { RichText } from "@/components/RichText";
 import type { ResumeContent } from "@/types/resume";
 
 export function PrintPage() {
@@ -74,7 +75,7 @@ export function PrintPage() {
         {summary && (
           <div className="mb-4">
             <h2 className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-1.5">Summary</h2>
-            <p className="text-[11.5px] text-slate-700 leading-relaxed">{summary}</p>
+            <p className="text-[11.5px] text-slate-700 leading-relaxed"><RichText text={summary} /></p>
           </div>
         )}
 
@@ -95,7 +96,7 @@ export function PrintPage() {
                     <ul className="mt-1 space-y-0.5 pl-1">
                       {exp.bullets.map((b, bi) => (
                         <li key={bi} className="flex gap-2 text-[11px] text-slate-700 leading-snug">
-                          <span className="text-slate-400 shrink-0 mt-0.5">•</span><span>{b}</span>
+                          <span className="text-slate-400 shrink-0 mt-0.5">•</span><span><RichText text={b} /></span>
                         </li>
                       ))}
                     </ul>

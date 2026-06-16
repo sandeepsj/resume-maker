@@ -11,7 +11,12 @@ import {
   getSkills,
   getProfile,
 } from "@/lib/google-drive";
-import { generateResume, applyAIEdit } from "@/lib/ai-client";
+import {
+  generateResume,
+  applyAIEdit,
+  AVAILABLE_MODELS,
+  RESUME_DEFAULT_MODEL,
+} from "@/lib/ai-client";
 import {
   GENERATE_RESUME_SYSTEM_PROMPT,
   buildGenerateResumePrompt,
@@ -29,6 +34,7 @@ import type { ResumeContent } from "@/types/resume";
 import type { ExperienceData } from "@/types/career";
 import { FitToPage } from "@/components/FitToPage";
 import { ATSScore } from "@/components/ATSScore";
+import { RichText } from "@/components/RichText";
 
 interface FloatingButton {
   x: number;
@@ -86,6 +92,7 @@ export function ResumeViewer({
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [regenOpen, setRegenOpen] = useState(false);
   const [regenInstructions, setRegenInstructions] = useState("");
+  const [regenModel, setRegenModel] = useState<string>(RESUME_DEFAULT_MODEL);
   const [regenStreaming, setRegenStreaming] = useState(false);
   const [regenStreamText, setRegenStreamText] = useState("");
   const [regenError, setRegenError] = useState("");
@@ -243,11 +250,17 @@ export function ResumeViewer({
         getExperiences(), getEducation(), getSkills(), getProfile(),
       ]);
 
+      // Respect each experience's default task selection (fall back to all tasks).
+      const experiencesWithDefaultTasks = allExp.map((e) => {
+        const defaults = e.tasks.filter((t) => t.isDefault);
+        return { ...e, tasks: defaults.length ? defaults : e.tasks };
+      });
+
       const userPrompt = buildGenerateResumePrompt({
         profile: prof,
         userEmail: user?.email || "",
         userName: user?.name || "",
-        experiences: allExp,
+        experiences: experiencesWithDefaultTasks,
         educations: edu,
         skills: sk,
         jobTitle: jobTitle || "",
@@ -260,10 +273,11 @@ export function ResumeViewer({
         systemPrompt: GENERATE_RESUME_SYSTEM_PROMPT,
         userPrompt,
         accessToken: accessToken!,
+        model: regenModel,
         onChunk: (text) => setRegenStreamText((prev) => prev + text),
       });
 
-      await updateResume(resumeId, { content: newContent, status: "READY" });
+      await updateResume(resumeId, { content: newContent, status: "READY", aiModel: regenModel });
       setContent(newContent);
       setRegenOpen(false); setRegenStreaming(false);
     } catch (err) {
@@ -372,7 +386,7 @@ export function ResumeViewer({
             {summary && (
               <div data-section-key="summary" className="mb-6">
                 <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-2">Summary</h2>
-                <p className="text-sm text-slate-700 leading-relaxed">{summary}</p>
+                <p className="text-sm text-slate-700 leading-relaxed"><RichText text={summary} /></p>
               </div>
             )}
             {/* Experience */}
@@ -392,7 +406,7 @@ export function ResumeViewer({
                       {exp.bullets.length > 0 && (
                         <ul className="mt-2 space-y-1">
                           {exp.bullets.map((bullet, bi) => (
-                            <li key={bi} className="flex gap-2 text-sm text-slate-700"><span className="text-slate-400 mt-0.5 shrink-0">•</span><span>{bullet}</span></li>
+                            <li key={bi} className="flex gap-2 text-sm text-slate-700"><span className="text-slate-400 mt-0.5 shrink-0">•</span><span><RichText text={bullet} /></span></li>
                           ))}
                         </ul>
                       )}
@@ -571,6 +585,15 @@ export function ResumeViewer({
             <textarea autoFocus value={regenInstructions} onChange={(e) => setRegenInstructions(e.target.value)} rows={4} disabled={regenStreaming}
               className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none disabled:opacity-50"
               placeholder="Custom instructions (optional)" />
+            <div className="mt-3">
+              <label className="block text-xs font-medium text-slate-600 mb-1">AI Model</label>
+              <select value={regenModel} onChange={(e) => setRegenModel(e.target.value)} disabled={regenStreaming}
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 bg-white">
+                {AVAILABLE_MODELS.map((m) => (
+                  <option key={m.id} value={m.id}>{m.label}</option>
+                ))}
+              </select>
+            </div>
             {regenStreamText && <div className="mt-3 p-3 bg-slate-50 rounded-lg max-h-32 overflow-y-auto"><p className="text-xs text-slate-500 mb-1 font-medium">Generating...</p><pre className="text-xs text-slate-600 whitespace-pre-wrap font-mono">{regenStreamText}</pre></div>}
             {regenError && <p className="mt-2 text-xs text-red-600 bg-red-50 rounded p-2">{regenError}</p>}
             <div className="flex gap-3 justify-end mt-4">
@@ -615,6 +638,13 @@ export function ResumeViewer({
           jobDescription={jobDescription}
           accessToken={accessToken!}
           onClose={() => setAtsScoreOpen(false)}
+          onReiterate={(feedback) => {
+            setAtsScoreOpen(false);
+            setRegenInstructions(feedback);
+            setRegenStreamText("");
+            setRegenError("");
+            setRegenOpen(true);
+          }}
         />
       )}
 
@@ -658,7 +688,7 @@ function MeasurePreview({ content }: { content: ResumeContent }) {
       </div>
       {summary && (
         <div className="mb-4"><h2 className="text-[10px] font-bold uppercase tracking-widest mb-1.5">Summary</h2>
-          <p className="text-[11.5px] leading-relaxed">{summary}</p></div>
+          <p className="text-[11.5px] leading-relaxed"><RichText text={summary} /></p></div>
       )}
       {experience.length > 0 && (
         <div className="mb-4"><h2 className="text-[10px] font-bold uppercase tracking-widest mb-2">Experience</h2>
@@ -668,7 +698,7 @@ function MeasurePreview({ content }: { content: ResumeContent }) {
               <p className="text-[11px]">{exp.company}{exp.location ? ` · ${exp.location}` : ""}</p>
             </div><p className="text-[10.5px] shrink-0 ml-3">{exp.startDate} — {exp.endDate ?? "Present"}</p></div>
             {exp.bullets.length > 0 && <ul className="mt-1 space-y-0.5 pl-1">{exp.bullets.map((b, bi) => (
-              <li key={bi} className="flex gap-2 text-[11px] leading-snug"><span className="shrink-0 mt-0.5">•</span><span>{b}</span></li>
+              <li key={bi} className="flex gap-2 text-[11px] leading-snug"><span className="shrink-0 mt-0.5">•</span><span><RichText text={b} /></span></li>
             ))}</ul>}</div>
           ))}</div></div>
       )}

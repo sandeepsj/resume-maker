@@ -2,11 +2,13 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { listResumes } from "@/lib/google-drive";
 import { ResumesClient } from "@/components/ResumesClient";
+import { FindBestMatch } from "@/components/FindBestMatch";
 import type { ResumeListItem } from "@/lib/google-drive";
 
 export function ResumesPage() {
   const [resumes, setResumes] = useState<ResumeListItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [matchOpen, setMatchOpen] = useState(false);
 
   useEffect(() => {
     listResumes((fresh) => setResumes(fresh))
@@ -46,14 +48,25 @@ export function ResumesPage() {
     <div className="p-8 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-slate-900">My Resumes</h1>
-        <Link
-          to="/resumes/new"
-          className="bg-blue-500 hover:bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors"
-        >
-          + New Resume
-        </Link>
+        <div className="flex items-center gap-3">
+          {resumes.length > 0 && (
+            <button
+              onClick={() => setMatchOpen(true)}
+              className="border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+            >
+              Find Best Match
+            </button>
+          )}
+          <Link
+            to="/resumes/new"
+            className="bg-blue-500 hover:bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+          >
+            + New Resume
+          </Link>
+        </div>
       </div>
       <ResumesClient initialResumes={resumes} />
+      {matchOpen && <FindBestMatch onClose={() => setMatchOpen(false)} />}
     </div>
   );
 }

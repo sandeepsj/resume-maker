@@ -14,6 +14,8 @@ Resume Maker is a full-stack web application that lets users create tailored, AI
 | [api-reference.md](./api-reference.md) | All API routes with request/response shapes |
 | [ai-workflows.md](./ai-workflows.md) | How AI generation and inline editing works |
 | [setup.md](./setup.md) | Local development setup guide |
+| [MCP_CONNECTOR.md](./MCP_CONNECTOR.md) | MCP connector — create/browse resumes & manage career data from an LLM |
+| [ROADMAP.md](./ROADMAP.md) | Phased plan: tasks model, resume matching, MCP connector |
 
 ## Quick Links
 

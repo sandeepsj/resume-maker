@@ -9,8 +9,13 @@ import {
   getProfile,
   createResume,
   updateResume,
+  saveDefaultTaskSelection,
 } from "@/lib/google-drive";
-import { generateResume } from "@/lib/ai-client";
+import {
+  generateResume,
+  AVAILABLE_MODELS,
+  RESUME_DEFAULT_MODEL,
+} from "@/lib/ai-client";
 import {
   GENERATE_RESUME_SYSTEM_PROMPT,
   buildGenerateResumePrompt,
@@ -25,6 +30,12 @@ interface JobDetails {
   jobDescription: string;
 }
 
+/** Task ids selected by default for an experience: those marked isDefault, else all. */
+function defaultTaskIds(exp: ExperienceData): string[] {
+  const defaults = exp.tasks.filter((t) => t.isDefault).map((t) => t.id);
+  return defaults.length ? defaults : exp.tasks.map((t) => t.id);
+}
+
 export function NewResumePage() {
   const navigate = useNavigate();
   const { accessToken, user } = useAuth();
@@ -36,16 +47,26 @@ export function NewResumePage() {
 
   const [experiences, setExperiences] = useState<ExperienceData[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // Per-experience selected task ids: { [experienceId]: Set<taskId> }
+  const [selectedTasks, setSelectedTasks] = useState<Record<string, Set<string>>>({});
   const [loadingExperiences, setLoadingExperiences] = useState(false);
+  const [savingDefaults, setSavingDefaults] = useState(false);
+  const [defaultsSaved, setDefaultsSaved] = useState(false);
 
   const [generating, setGenerating] = useState(false);
   const [streamText, setStreamText] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [model, setModel] = useState<string>(RESUME_DEFAULT_MODEL);
 
   // Undo history: snapshots of the form state before each change
-  type Snapshot = { step: Step; jobDetails: JobDetails; selectedIds: Set<string> };
+  type Snapshot = {
+    step: Step;
+    jobDetails: JobDetails;
+    selectedIds: Set<string>;
+    selectedTasks: Record<string, Set<string>>;
+  };
   const [history, setHistory] = useState<Snapshot[]>([]);
-  const prevSnapshot = useRef<Snapshot>({ step, jobDetails, selectedIds });
+  const prevSnapshot = useRef<Snapshot>({ step, jobDetails, selectedIds, selectedTasks });
   const isUndoing = useRef(false);
   const isFirstRun = useRef(true);
 
@@ -56,12 +77,12 @@ export function NewResumePage() {
     }
     if (isUndoing.current) {
       isUndoing.current = false;
-      prevSnapshot.current = { step, jobDetails, selectedIds };
+      prevSnapshot.current = { step, jobDetails, selectedIds, selectedTasks };
       return;
     }
     setHistory((prev) => [...prev, prevSnapshot.current]);
-    prevSnapshot.current = { step, jobDetails, selectedIds };
-  }, [step, jobDetails, selectedIds]);
+    prevSnapshot.current = { step, jobDetails, selectedIds, selectedTasks };
+  }, [step, jobDetails, selectedIds, selectedTasks]);
 
   const handleUndo = () => {
     if (history.length === 0) return;
@@ -70,6 +91,7 @@ export function NewResumePage() {
     setStep(last.step);
     setJobDetails(last.jobDetails);
     setSelectedIds(last.selectedIds);
+    setSelectedTasks(last.selectedTasks);
     setHistory((prev) => prev.slice(0, -1));
   };
 
@@ -80,6 +102,9 @@ export function NewResumePage() {
         .then((data) => {
           setExperiences(data);
           setSelectedIds(new Set(data.map((e) => e.id)));
+          const init: Record<string, Set<string>> = {};
+          for (const e of data) init[e.id] = new Set(defaultTaskIds(e));
+          setSelectedTasks(init);
         })
         .catch(() => {})
         .finally(() => setLoadingExperiences(false));
@@ -101,6 +126,38 @@ export function NewResumePage() {
 
   const selectAll = () => setSelectedIds(new Set(experiences.map((e) => e.id)));
   const deselectAll = () => setSelectedIds(new Set());
+
+  const toggleTask = (expId: string, taskId: string) => {
+    setSelectedTasks((prev) => {
+      const set = new Set(prev[expId] ?? []);
+      if (set.has(taskId)) set.delete(taskId); else set.add(taskId);
+      return { ...prev, [expId]: set };
+    });
+  };
+
+  const setAllTasks = (exp: ExperienceData, on: boolean) => {
+    setSelectedTasks((prev) => ({
+      ...prev,
+      [exp.id]: new Set(on ? exp.tasks.map((t) => t.id) : []),
+    }));
+  };
+
+  const handleSaveDefaults = async () => {
+    setSavingDefaults(true);
+    setError(null);
+    try {
+      const selection: Record<string, string[]> = {};
+      for (const id of selectedIds) selection[id] = Array.from(selectedTasks[id] ?? []);
+      const updated = await saveDefaultTaskSelection(selection);
+      setExperiences(updated);
+      setDefaultsSaved(true);
+      setTimeout(() => setDefaultsSaved(false), 2500);
+    } catch {
+      setError("Failed to save default selection. Please try again.");
+    } finally {
+      setSavingDefaults(false);
+    }
+  };
 
   const handleGenerate = async () => {
     setGenerating(true);
@@ -125,7 +182,13 @@ export function NewResumePage() {
         getProfile(),
       ]);
 
-      const selectedExperiences = allExperiences.filter((e) => selectedIds.has(e.id));
+      // Only the selected experiences, each narrowed to its selected tasks.
+      const selectedExperiences = allExperiences
+        .filter((e) => selectedIds.has(e.id))
+        .map((e) => {
+          const taskSet = selectedTasks[e.id];
+          return taskSet ? { ...e, tasks: e.tasks.filter((t) => taskSet.has(t.id)) } : e;
+        });
 
       const userPrompt = buildGenerateResumePrompt({
         profile,
@@ -143,13 +206,14 @@ export function NewResumePage() {
         systemPrompt: GENERATE_RESUME_SYSTEM_PROMPT,
         userPrompt,
         accessToken: accessToken!,
+        model,
         onChunk: (text) => setStreamText((prev) => prev + text),
       });
 
       await updateResume(resume.id, {
         content,
         status: "READY",
-        aiModel: "claude-opus-4-7",
+        aiModel: model,
       });
 
       navigate(`/resumes/${resume.id}`);
@@ -245,17 +309,60 @@ export function NewResumePage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {experiences.map((exp) => (
-                <label key={exp.id} className={`flex items-start gap-3 p-4 border rounded-xl cursor-pointer transition-colors ${
-                  selectedIds.has(exp.id) ? "border-blue-300 bg-blue-50" : "border-slate-200 hover:border-slate-300"
-                }`}>
-                  <input type="checkbox" checked={selectedIds.has(exp.id)} onChange={() => toggleSelect(exp.id)} className="mt-0.5 w-4 h-4 rounded text-blue-500" />
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-slate-900 text-sm">{exp.title} · {exp.company}</div>
-                    <div className="text-xs text-slate-500 mt-0.5">{formatDate(exp.startDate)} — {exp.isCurrent ? "Present" : formatDate(exp.endDate)}</div>
+              {experiences.map((exp) => {
+                const isSelected = selectedIds.has(exp.id);
+                const taskSet = selectedTasks[exp.id] ?? new Set<string>();
+                return (
+                  <div key={exp.id} className={`border rounded-xl transition-colors ${
+                    isSelected ? "border-blue-300 bg-blue-50" : "border-slate-200 hover:border-slate-300"
+                  }`}>
+                    <label className="flex items-start gap-3 p-4 cursor-pointer">
+                      <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(exp.id)} className="mt-0.5 w-4 h-4 rounded text-blue-500" />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-slate-900 text-sm">{exp.title} · {exp.company}</div>
+                        <div className="text-xs text-slate-500 mt-0.5">{formatDate(exp.startDate)} — {exp.isCurrent ? "Present" : formatDate(exp.endDate)}</div>
+                      </div>
+                    </label>
+                    {isSelected && exp.tasks.length > 0 && (
+                      <div className="px-4 pb-4 pl-11">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-xs font-medium text-slate-500">Tasks to include ({taskSet.size}/{exp.tasks.length})</span>
+                          <div className="flex gap-2 text-xs">
+                            <button type="button" onClick={() => setAllTasks(exp, true)} className="text-blue-500 hover:text-blue-700">All</button>
+                            <span className="text-slate-300">|</span>
+                            <button type="button" onClick={() => setAllTasks(exp, false)} className="text-slate-500 hover:text-slate-700">None</button>
+                          </div>
+                        </div>
+                        <div className="space-y-1.5">
+                          {exp.tasks.map((t) => (
+                            <label key={t.id} className="flex items-start gap-2 text-sm text-slate-700 cursor-pointer">
+                              <input type="checkbox" checked={taskSet.has(t.id)} onChange={() => toggleTask(exp.id, t.id)} className="mt-0.5 w-3.5 h-3.5 rounded text-blue-500" />
+                              <span>
+                                {t.title}
+                                {t.skills && t.skills.length > 0 && (
+                                  <span className="text-xs text-slate-400"> · {t.skills.join(", ")}</span>
+                                )}
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {isSelected && exp.tasks.length === 0 && (
+                      <p className="px-4 pb-4 pl-11 text-xs text-slate-400">No tasks on this experience — add some on the Experience page for finer control.</p>
+                    )}
                   </div>
-                </label>
-              ))}
+                );
+              })}
+            </div>
+          )}
+          {experiences.length > 0 && (
+            <div className="flex items-center gap-3">
+              <button onClick={handleSaveDefaults} disabled={savingDefaults}
+                className="text-sm border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg px-3 py-1.5 font-medium disabled:opacity-50 transition-colors">
+                {savingDefaults ? "Saving…" : "Save current selection as default"}
+              </button>
+              {defaultsSaved && <span className="text-xs text-green-600">✓ Saved to your career profile</span>}
             </div>
           )}
           <div className="flex justify-between pt-2">
@@ -277,6 +384,15 @@ export function NewResumePage() {
             </div>
             <div className="text-sm"><span className="text-slate-500">Experiences: </span><span className="font-medium text-slate-900">{selectedIds.size} selected</span></div>
             <div className="text-xs text-slate-400 mt-2">{jobDetails.jobDescription.substring(0, 200)}{jobDetails.jobDescription.length > 200 ? "..." : ""}</div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">AI Model</label>
+            <select value={model} onChange={(e) => setModel(e.target.value)} disabled={generating}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 bg-white">
+              {AVAILABLE_MODELS.map((m) => (
+                <option key={m.id} value={m.id}>{m.label}</option>
+              ))}
+            </select>
           </div>
           {error && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>}
           {streamText && (

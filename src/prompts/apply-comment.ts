@@ -8,6 +8,7 @@ Rules:
 - Make surgical, minimal edits. Only change what the user explicitly requested.
 - Preserve the existing tone, style, and structure of the rest of the resume.
 - Keep bullet points in action-verb format (Led, Built, Designed, etc.).
+- Preserve the existing Markdown **bold** emphasis on keywords/metrics. If you rewrite a bullet, keep quantified impact (numbers) and keep the most job-relevant keywords wrapped in **bold**.
 - Do not add information not present in the original resume.
 - Do not change any other section besides the one indicated.
 - Return ONLY valid JSON — no markdown, no explanation outside the JSON structure.`;

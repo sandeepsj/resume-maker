@@ -14,9 +14,11 @@
  */
 
 import type { ResumeContent } from "@/types/resume";
+import type { WeightedKeyword } from "@/lib/keyword-extractor";
 import type {
   UserProfileData,
   ExperienceData,
+  ExperienceTask,
   EducationData,
   SkillData,
 } from "@/types/career";
@@ -51,6 +53,9 @@ export interface DriveResumeFile {
   status: ResumeStatus;
   aiModel?: string;
   comments: CommentData[];
+  /** Cached weighted keywords for JD matching (Phase 3), + hash of the content they were derived from. */
+  keywords?: WeightedKeyword[];
+  keywordsHash?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -357,10 +362,26 @@ async function _fetchProfile(): Promise<UserProfileData> {
   return data;
 }
 
+/**
+ * Back-compat migration (Phase 1): ensure every experience has a `tasks` array.
+ * Legacy records only have `highlights[]` — synthesize one task per highlight,
+ * marked default (previously all highlights were used). Non-destructive: read-only,
+ * with deterministic `legacy-{i}` ids so synthesized tasks are stable across reads.
+ */
+function normalizeExperience(exp: ExperienceData): ExperienceData {
+  if (exp.tasks && exp.tasks.length > 0) return exp;
+  const tasks: ExperienceTask[] = (exp.highlights ?? []).map((h, i) => ({
+    id: `legacy-${i}`,
+    title: h,
+    isDefault: true,
+  }));
+  return { ...exp, tasks };
+}
+
 async function _fetchExperiences(): Promise<ExperienceData[]> {
   const careerId = await getCareerFolderId();
   const { data } = await readOrCreate<ExperienceData[]>(careerId, "experiences.json", []);
-  return data;
+  return data.map(normalizeExperience);
 }
 
 async function _fetchEducation(): Promise<EducationData[]> {
@@ -441,6 +462,25 @@ export async function updateExperience(id: string, data: Partial<ExperienceData>
 export async function deleteExperience(id: string): Promise<void> {
   const experiences = await _fetchExperiences();
   await _saveExperiences(experiences.filter((e) => e.id !== id));
+}
+
+/**
+ * Persist a default task selection (Phase 2): for each experience id in `selection`,
+ * mark the listed task ids `isDefault: true` and the rest `false`. Experiences not in
+ * the map are left untouched. Returns the updated list.
+ */
+export async function saveDefaultTaskSelection(
+  selection: Record<string, string[]>
+): Promise<ExperienceData[]> {
+  const experiences = await _fetchExperiences();
+  const updated = experiences.map((exp) => {
+    const sel = selection[exp.id];
+    if (!sel) return exp;
+    const selSet = new Set(sel);
+    return { ...exp, tasks: exp.tasks.map((t) => ({ ...t, isDefault: selSet.has(t.id) })) };
+  });
+  await _saveExperiences(updated);
+  return updated;
 }
 
 // ---------------------------------------------------------------------------
@@ -675,8 +715,8 @@ export async function addComment(
     updatedAt: now,
   };
 
-  resume.comments.push(newComment);
-  await updateResume(resumeId, { comments: resume.comments });
+  const updatedComments = [...resume.comments, newComment];
+  await updateResume(resumeId, { comments: updatedComments });
   return newComment;
 }
 

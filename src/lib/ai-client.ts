@@ -11,8 +11,26 @@ import type { ResumeContent } from "@/types/resume";
 const LLM_PROXY_URL =
   import.meta.env.VITE_LLM_PROXY_URL || "https://llm-proxy-smoky.vercel.app";
 
-const DEFAULT_MODEL = "claude-opus-4-7";
+const DEFAULT_MODEL = "claude-opus-4-8";
 const APPLY_EDIT_MODEL = "claude-sonnet-4-6";
+
+/** Models the user can pick from when generating a resume. First entry is the default. */
+export const AVAILABLE_MODELS: { id: string; label: string }[] = [
+  { id: "claude-opus-4-8", label: "Opus 4.8 — best quality (recommended)" },
+  { id: "claude-opus-4-7", label: "Opus 4.7" },
+  { id: "claude-sonnet-4-6", label: "Sonnet 4.6 — faster" },
+  { id: "claude-haiku-4-5", label: "Haiku 4.5 — fastest" },
+];
+
+export const RESUME_DEFAULT_MODEL = DEFAULT_MODEL;
+
+/**
+ * Opus 4.7/4.8 and Fable 5 removed the `temperature` sampling param — sending it
+ * returns a 400. Omit it for those models; everything else keeps the default.
+ */
+function omitsSamplingParams(model: string): boolean {
+  return /^claude-(opus-4-(7|8)|fable-5)/.test(model);
+}
 
 interface StreamAIOptions {
   systemPrompt: string;
@@ -51,8 +69,8 @@ export async function streamAI(options: StreamAIOptions): Promise<string> {
       body: {
         model,
         max_tokens: maxTokens,
-        // Opus 4.7 deprecated `temperature`; omit it for that model
-        ...(model.startsWith("claude-opus-4-7") ? {} : { temperature }),
+        // Opus 4.7/4.8 and Fable 5 removed `temperature`; omit it for those models
+        ...(omitsSamplingParams(model) ? {} : { temperature }),
         system: systemPrompt,
         messages: [{ role: "user", content: userPrompt }],
         stream: true,
@@ -111,6 +129,7 @@ export async function generateResume(params: {
   systemPrompt: string;
   userPrompt: string;
   accessToken: string;
+  model?: string;
   onChunk?: (text: string) => void;
 }): Promise<ResumeContent> {
   const fullText = await streamAI({
