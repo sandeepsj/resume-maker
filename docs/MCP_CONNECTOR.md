@@ -20,18 +20,19 @@ straight from a chat.
 
 ## Tools
 
-| Tool | What it does |
-|---|---|
-| `create_resume` | Generate a resume tailored to a job description from stored career data; returns a deep link `https://sandeepsj.github.io/resume-maker/#/resumes/{id}` that opens it in this app |
-| `get_career_overview` | List experiences with their task lists + ids |
-| `add_experience` | Add a role (summary + tasks) |
-| `add_tasks` | Append tasks to an existing experience |
-| `list_resumes` | Browse the resume collection (metadata) |
-| `get_resume` | Read a resume's full content + comments |
-| `add_comment` | Add a PENDING review comment to a resume |
-| `find_best_resume` | Rank existing resumes against a job description (keyword-vector matching) |
+Full CRUD over career data + resumes, grouped:
 
-`create_resume` / `find_best_resume` call the same shared llm-proxy the app uses
+- **Experiences & tasks:** `get_career_overview`, `add_experience`, `update_experience`,
+  `add_tasks`, `update_task`, `delete_task`, `delete_experience`
+- **Profile, skills & education:** `get_profile`, `update_profile`, `add_skills`,
+  `update_skill`, `delete_skill`, `add_education`, `update_education`, `delete_education`
+- **Resumes:** `create_resume`, `list_resumes`, `get_resume`, `regenerate_resume`,
+  `delete_resume`, `add_comment`, `delete_comment`, `find_best_resume`
+
+`create_resume` returns a deep link `https://sandeepsj.github.io/resume-maker/#/resumes/{id}`
+that opens the resume in this app; `regenerate_resume` refreshes an existing one in place.
+
+`create_resume` / `regenerate_resume` / `find_best_resume` call the same shared llm-proxy the app uses
 (authenticated with the Google token). Resume keyword vectors are cached in each
 `resume.json` (`keywords` / `keywordsHash`) and reused across searches.
 
