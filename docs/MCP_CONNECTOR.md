@@ -26,15 +26,20 @@ Full CRUD over career data + resumes, grouped:
   `add_tasks`, `update_task`, `delete_task`, `delete_experience`
 - **Profile, skills & education:** `get_profile`, `update_profile`, `add_skills`,
   `update_skill`, `delete_skill`, `add_education`, `update_education`, `delete_education`
-- **Resumes:** `create_resume`, `list_resumes`, `get_resume`, `regenerate_resume`,
-  `delete_resume`, `add_comment`, `delete_comment`, `find_best_resume`
+- **Resumes:** `prepare_resume` + `save_resume` (create/refresh), `list_resumes`,
+  `get_resume`, `delete_resume`, `add_comment`, `delete_comment`,
+  `list_resume_texts` + `rank_resumes` (best-fit matching)
 
-`create_resume` returns a deep link `https://sandeepsj.github.io/resume-maker/#/resumes/{id}`
-that opens the resume in this app; `regenerate_resume` refreshes an existing one in place.
+**The connector makes no LLM calls / needs no Anthropic key.** Since the MCP client is
+already an LLM, generation is client-driven: `prepare_resume` returns the career data +
+writing guidance + output schema, the client writes the resume JSON itself (no extra cost),
+and `save_resume` stores it (pass a `resumeId` to refresh in place). It returns a deep link
+`https://sandeepsj.github.io/resume-maker/#/resumes/{id}` that opens the resume in this app.
+Matching works the same way: `list_resume_texts` → client extracts keyword vectors →
+`rank_resumes` does the deterministic cosine ranking server-side.
 
-`create_resume` / `regenerate_resume` / `find_best_resume` call the same shared llm-proxy the app uses
-(authenticated with the Google token). Resume keyword vectors are cached in each
-`resume.json` (`keywords` / `keywordsHash`) and reused across searches.
+(The **SPA** still generates via the shared llm-proxy — it has no LLM client in the browser.
+Only the MCP path is keyless.)
 
 ## Setup / connect (one-time)
 
