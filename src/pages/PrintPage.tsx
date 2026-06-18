@@ -112,13 +112,15 @@ export function PrintPage() {
             <h2 className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-2">Education</h2>
             <div className="space-y-2">
               {education.map((edu, i) => (
-                <div key={edu.id ?? i} className="flex items-start justify-between">
-                  <div>
+                <div key={edu.id ?? i} className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
                     <p className="text-[12px] font-semibold text-slate-900">{edu.degree}{edu.field ? ` in ${edu.field}` : ""}</p>
                     <p className="text-[11px] text-slate-600">{edu.institution}</p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-[10.5px] text-slate-500">{edu.graduationDate}</p>
                     {(edu.gpa || edu.honors) && <p className="text-[10.5px] text-slate-500">{[edu.gpa && `GPA: ${edu.gpa}`, edu.honors].filter(Boolean).join(" · ")}</p>}
                   </div>
-                  <p className="text-[10.5px] text-slate-500 shrink-0 ml-3">{edu.graduationDate}</p>
                 </div>
               ))}
             </div>

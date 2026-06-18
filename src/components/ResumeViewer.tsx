@@ -422,17 +422,17 @@ export function ResumeViewer({
                 <div className="space-y-4">
                   {education.map((edu, i) => (
                     <div key={edu.id ?? i} data-section-key={`education-${edu.id ?? i}`}>
-                      <div className="flex items-start justify-between">
-                        <div>
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0">
                           <h3 className="font-semibold text-slate-900 text-sm">{edu.degree}{edu.field ? ` in ${edu.field}` : ""}</h3>
-                          <p className="text-sm text-slate-600">
-                            {edu.institution}
-                            {(edu.gpa || edu.honors) && (
-                              <span className="text-slate-500"> — {[edu.gpa && `GPA: ${edu.gpa}`, edu.honors].filter(Boolean).join(" · ")}</span>
-                            )}
-                          </p>
+                          <p className="text-sm text-slate-600">{edu.institution}</p>
                         </div>
-                        <p className="text-xs text-slate-500 shrink-0 ml-4">{formatDate(edu.graduationDate)}</p>
+                        <div className="shrink-0 text-right">
+                          <p className="text-xs text-slate-500">{formatDate(edu.graduationDate)}</p>
+                          {(edu.gpa || edu.honors) && (
+                            <p className="text-xs text-slate-500">{[edu.gpa && `GPA: ${edu.gpa}`, edu.honors].filter(Boolean).join(" · ")}</p>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -705,10 +705,12 @@ function MeasurePreview({ content }: { content: ResumeContent }) {
       {education.length > 0 && (
         <div className="mb-4"><h2 className="text-[10px] font-bold uppercase tracking-widest mb-2">Education</h2>
           {education.map((edu, i) => (
-            <div key={i} className="flex justify-between mb-1"><div>
+            <div key={i} className="flex justify-between gap-3 mb-1"><div className="min-w-0">
               <p className="text-[12px] font-semibold">{edu.degree}{edu.field ? ` in ${edu.field}` : ""}</p>
-              <p className="text-[11px]">{edu.institution}{(edu.gpa || edu.honors) && <span> — {[edu.gpa && `GPA: ${edu.gpa}`, edu.honors].filter(Boolean).join(" · ")}</span>}</p>
-            </div><p className="text-[10.5px] shrink-0 ml-3">{edu.graduationDate}</p></div>
+              <p className="text-[11px]">{edu.institution}</p>
+            </div><div className="shrink-0 text-right"><p className="text-[10.5px]">{edu.graduationDate}</p>
+              {(edu.gpa || edu.honors) && <p className="text-[10.5px]">{[edu.gpa && `GPA: ${edu.gpa}`, edu.honors].filter(Boolean).join(" · ")}</p>}
+            </div></div>
           ))}</div>
       )}
       {skills.length > 0 && (
